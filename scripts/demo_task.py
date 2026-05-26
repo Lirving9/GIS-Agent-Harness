@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -18,6 +19,10 @@ from gis_agent_harness.sample_data import generate_sample_data
 def main() -> None:
     fixtures = generate_sample_data(ROOT / "tests" / "fixtures")
     config = HarnessConfig.from_env()
+    if "GIS_AGENT_HARNESS_RUN_ROOT" not in os.environ:
+        config.run_root = ROOT / ".demo-runs"
+    if "GIS_AGENT_HARNESS_STATE_FILE" not in os.environ:
+        config.state_file = ROOT / ".demo-runs" / "AGENT_STATE.md"
     config.use_mock = True
     router = LLMRouter(
         primary_model=config.primary_model,

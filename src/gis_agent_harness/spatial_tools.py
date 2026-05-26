@@ -67,6 +67,10 @@ def remove_existing_vector(path: Path) -> None:
         for sibling in path.parent.glob(f"{path.stem}.*"):
             sibling.unlink(missing_ok=True)
         return
+    if path.suffix.lower() == ".gpkg":
+        for sibling in path.parent.glob(f"{path.name}*"):
+            sibling.unlink(missing_ok=True)
+        return
     path.unlink(missing_ok=True)
 
 

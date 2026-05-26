@@ -1,4 +1,7 @@
 .venv/
+*.egg-info/
+build/
+dist/
 __pycache__/
 .pytest_cache/
 .mypy_cache/
@@ -11,6 +14,8 @@ __pycache__/
 .runs/failed/*
 .runs/artifacts/*
 .runs/state.jsonl
+.demo-runs/
+.pytest-smoke/
 !.runs/logs/.gitkeep
 !.runs/failed/.gitkeep
 !.runs/artifacts/.gitkeep

@@ -93,3 +93,34 @@ def test_demo_recovery_script_smoke() -> None:
     assert payload["dry_run"]["mode"] == "dry-run"
     assert payload["report_index"]["run_id"] == payload["initial_failure"]["run_id"]
     assert payload["recovery_run"]["status"] == "succeeded"
+
+
+def test_demo_readme_workflow_script_smoke() -> None:
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "demo_readme_workflow.py")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PYTHONPATH": str(root / "src"), **os.environ},
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["help_has_core_commands"] is True
+    assert payload["inspect_vector"]["driver"] == "GPKG"
+    assert payload["inspect_raster"]["crs"] == "EPSG:4326"
+    assert payload["failed_run"]["status"] == "failed"
+    assert payload["succeeded_run"]["status"] == "succeeded"
+    assert payload["state_report_exists"] is True
+    assert payload["runs_report_exists"] is True
+    assert payload["failure_files_report_exists"] is True
+    assert payload["replay_report_exists"] is True
+    assert payload["latest_bundle"]["run_id"] == payload["failed_run"]["run_id"]
+    assert payload["targeted_bundle"]["run_id"] == payload["failed_run"]["run_id"]
+    assert payload["profile_bundle"]["run_id"] == payload["failed_run"]["run_id"]
+    assert "run_id:" in payload["printed_index"]
+    assert "run_id:" in payload["latest_report_text"]
+    assert "task_summary" in payload["targeted_replay_text"]
+    assert payload["replay_dry_run"]["mode"] == "dry-run"
+    assert payload["replay_confirm"]["status"] == "succeeded"

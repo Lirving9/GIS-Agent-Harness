@@ -38,6 +38,7 @@ python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4
 pytest -q
 python3 scripts/demo_task.py
 python3 scripts/demo_recovery.py
+python3 scripts/demo_readme_workflow.py
 python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
@@ -69,6 +70,7 @@ python3 scripts/clean_local_state.py
   `--latest` reads the most recent local bundle
   `--section summary|state|failure-files|replay|index` selects a specific artifact inside the bundle
 - `python3 scripts/demo_recovery.py`: offline recovery smoke that fails a run, inspects it, exports a report, previews replay, and then succeeds with an explicit override
+- `python3 scripts/demo_readme_workflow.py`: offline proof that the documented CLI workflow remains runnable with real local `run_id` substitution
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying
 - `--dry-run`: preview the reconstructed replay task and command without executing it

@@ -1,0 +1,100 @@
+# GIS Agent Harness
+
+GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It provides:
+
+- Click CLI commands for vector and raster inspection
+- a mock-first LiteLLM routing layer with fallback support
+- CRS, geometry, and AST guardrails before execution
+- sandboxed Python execution with timeout, stdout, stderr, and failed-script capture
+- append-only state snapshots for recovery and audit
+
+The project follows the requirements in [GIS-harness.md](GIS-harness.md) and keeps all tests offline by default.
+
+## Scope
+
+This MVP is intentionally narrow:
+
+- local files only
+- CLI only
+- no web service
+- no database
+- mock routing by default, live LiteLLM optional
+
+## Python Version
+
+The target baseline is Python 3.11. The package metadata allows `>=3.11,<3.13`, and the current repository was validated on Python 3.12 because that is the available interpreter in this environment.
+
+## Install
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+## Generate Sample Data
+
+```bash
+python scripts/generate_sample_data.py
+```
+
+This creates:
+
+- `tests/fixtures/vector/sample.gpkg`
+- `tests/fixtures/vector/sample.shp`
+- `tests/fixtures/vector/sample_3857.gpkg`
+- `tests/fixtures/vector/invalid_geometry.gpkg`
+- `tests/fixtures/vector/missing_crs.shp`
+- `tests/fixtures/raster/sample.tif`
+
+## CLI
+
+```bash
+python -m gis_agent_harness.cli --help
+python -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
+python -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python -m gis_agent_harness.cli run-task \
+  --task-summary "Align vector CRS to raster CRS" \
+  --vector tests/fixtures/vector/sample_3857.gpkg \
+  --raster tests/fixtures/raster/sample.tif
+python -m gis_agent_harness.cli show-state
+```
+
+## Tests
+
+```bash
+pytest -q
+python scripts/demo_task.py
+```
+
+## What `run-task` Does
+
+`run-task` executes a minimal ReAct loop:
+
+1. Inspect input datasets.
+2. Block on missing CRS, CRS mismatch, invalid geometry, or unsafe Python.
+3. Ask the router for a repair action.
+4. Execute the generated repair script inside a subprocess sandbox.
+5. Re-inspect and stop on success, repeated failures, or max iterations.
+
+The default mock router can repair:
+
+- missing CRS via `set_crs(...)`
+- CRS mismatch via `to_crs(...)`
+- invalid geometry via `make_valid()`
+
+## Rollback Strategy
+
+- Use one Git commit per major stage.
+- If a stage fails validation, revert only that stage and keep previously passing modules intact.
+- If live LiteLLM integration fails, keep mock routing as the required MVP path.
+- If a feature expands beyond the MVP boundary, downgrade it to documentation instead of blocking the core flow.
+
+## Stop Conditions
+
+The repository is considered complete when:
+
+- CLI help works for the top-level and required subcommands
+- `pytest -q` passes offline
+- `python scripts/demo_task.py` completes a failure -> repair -> success loop
+- `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` are present

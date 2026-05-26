@@ -1,0 +1,2 @@
+[console_scripts]
+gis-agent-harness = gis_agent_harness.cli:main

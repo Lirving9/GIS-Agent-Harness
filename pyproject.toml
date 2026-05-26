@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gis-agent-harness"
+version = "0.1.0"
+description = "Local-first GIS agent harness MVP with Click CLI, guardrails, and mockable LLM routing."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [
+  { name = "spiderli" }
+]
+dependencies = [
+  "click>=8.1,<9",
+  "litellm>=1.72,<2",
+  "geopandas>=1.0,<2",
+  "fiona>=1.10,<2",
+  "rasterio>=1.4,<2",
+  "shapely>=2.0,<3",
+  "pyproj>=3.6,<4",
+  "numpy>=1.26,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2,<9",
+]
+
+[project.scripts]
+gis-agent-harness = "gis_agent_harness.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

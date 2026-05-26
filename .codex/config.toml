@@ -1,0 +1,7 @@
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[commands]
+fixtures = "python scripts/generate_sample_data.py"
+test = "pytest -q"
+smoke = "python scripts/demo_task.py"

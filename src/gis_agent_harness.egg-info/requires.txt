@@ -1,0 +1,11 @@
+click<9,>=8.1
+litellm<2,>=1.72
+geopandas<2,>=1.0
+fiona<2,>=1.10
+rasterio<2,>=1.4
+shapely<3,>=2.0
+pyproj<4,>=3.6
+numpy<3,>=1.26
+
+[dev]
+pytest<9,>=8.2

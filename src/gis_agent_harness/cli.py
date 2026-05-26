@@ -42,6 +42,35 @@ def _render_runs_table(rows: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
+def _render_state_table(rows: list[dict[str, object]]) -> str:
+    headers = ["run_id", "status", "stage", "summary"]
+    table_rows = []
+    for row in rows:
+        table_rows.append(
+            {
+                "run_id": str(row.get("run_id", "")),
+                "status": str(row.get("status", "")),
+                "stage": str(row.get("stage", "")),
+                "summary": str(row.get("summary", "")),
+            }
+        )
+
+    widths = {header: len(header) for header in headers}
+    for row in table_rows:
+        for header in headers:
+            widths[header] = max(widths[header], len(row[header]))
+
+    def render_line(values: dict[str, str]) -> str:
+        return "  ".join(values[header].ljust(widths[header]) for header in headers)
+
+    header_row = {header: header for header in headers}
+    separator_row = {header: "-" * widths[header] for header in headers}
+    lines = [render_line(header_row), render_line(separator_row)]
+    for row in table_rows:
+        lines.append(render_line(row))
+    return "\n".join(lines)
+
+
 @click.group()
 def main() -> None:
     """GIS Agent Harness CLI."""
@@ -128,7 +157,7 @@ def run_task_command(
 
 @main.command("show-state")
 @click.option("--limit", default=5, show_default=True, type=int)
-@click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--format", "output_format", type=click.Choice(["json", "markdown", "table"]), default="json", show_default=True)
 @click.option("--run-id", default=None, help="Filter JSON output to a specific run id.")
 @click.option("--status", default=None, help="Filter JSON output by snapshot status.")
 @click.option("--stage", default=None, help="Filter JSON output by snapshot stage.")
@@ -157,11 +186,15 @@ def show_state_command(
     if output_format == "markdown" and any(value is not None for value in (run_id, status, stage)) or (
         output_format == "markdown" and failed_only
     ):
-        raise click.ClickException("Filtering options are only supported with --format json.")
+        raise click.ClickException("Filtering options are only supported with --format json or --format table.")
     if output_format == "markdown":
         click.echo(store.render_markdown())
         return
-    click.echo(store.render_recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only))
+    rows = store.recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only)
+    if output_format == "table":
+        click.echo(_render_state_table(rows))
+        return
+    click.echo(json.dumps(rows, indent=2, ensure_ascii=False) if rows else store.render_recent(limit=limit))
 
 
 @main.command("list-runs")

@@ -101,6 +101,39 @@ def test_show_state_markdown_command(tmp_path: Path) -> None:
     assert "run-2" in result.output
 
 
+def test_show_state_table_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-table",
+            iteration=3,
+            stage="stop",
+            status="failed",
+            summary="table summary",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--format",
+            "table",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "run_id" in result.output
+    assert "run-table" in result.output
+    assert "table summary" in result.output
+
+
 def test_show_state_failed_only_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

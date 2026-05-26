@@ -501,12 +501,18 @@ def replay_last_command(
 @main.command("export-report")
 @click.option("--run-id", default=None, help="Export a report bundle for a specific run id instead of the latest failed run.")
 @click.option("--latest-failed", is_flag=True, help="Explicitly export the latest failed run.")
+@click.option(
+    "--only",
+    default=None,
+    help="Comma-separated subset of report sections to export: summary,state,failure-files,replay,index.",
+)
 @click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory that will receive the report files.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def export_report_command(
     run_id: str | None,
     latest_failed: bool,
+    only: str | None,
     output_dir: Path | None,
     state_file: Path | None,
     run_root: Path | None,
@@ -516,6 +522,14 @@ def export_report_command(
 
     if run_id is not None and latest_failed:
         raise click.ClickException("Use either --run-id or --latest-failed, not both.")
+
+    selected_sections = None
+    if only:
+        selected_sections = {item.strip() for item in only.split(",") if item.strip()}
+        allowed_sections = {"summary", "state", "failure-files", "replay", "index"}
+        unknown = selected_sections - allowed_sections
+        if unknown:
+            raise click.ClickException(f"Unsupported report section(s): {', '.join(sorted(unknown))}")
 
     config = HarnessConfig.from_env()
     if state_file is not None:
@@ -567,16 +581,19 @@ def export_report_command(
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         output_dir = Path("reports") / f"{selected_run_id}-{timestamp}"
 
-    entries = {
-        "summary.json": _render_json(summary),
-        "summary.txt": _render_replay_table({**summary, "suggested_fix": summary.get("next_step_hint")}),
-        "state.json": _render_json(run_rows),
-        "state.txt": _render_state_table(run_rows),
-        "failure-files.json": _render_json(files_payload),
-        "failure-files.txt": _render_failure_files_table(files_payload),
-        "replay.json": _render_json(replay_payload),
-        "replay.txt": _render_replay_table(replay_payload),
-    }
+    entries: dict[str, str] = {}
+    if selected_sections is None or "summary" in selected_sections:
+        entries["summary.json"] = _render_json(summary)
+        entries["summary.txt"] = _render_replay_table({**summary, "suggested_fix": summary.get("next_step_hint")})
+    if selected_sections is None or "state" in selected_sections:
+        entries["state.json"] = _render_json(run_rows)
+        entries["state.txt"] = _render_state_table(run_rows)
+    if selected_sections is None or "failure-files" in selected_sections:
+        entries["failure-files.json"] = _render_json(files_payload)
+        entries["failure-files.txt"] = _render_failure_files_table(files_payload)
+    if selected_sections is None or "replay" in selected_sections:
+        entries["replay.json"] = _render_json(replay_payload)
+        entries["replay.txt"] = _render_replay_table(replay_payload)
     written = _write_report_bundle(output_dir, entries)
     index_payload = {
         "run_id": summary["run_id"],
@@ -584,24 +601,25 @@ def export_report_command(
         "suggested_fix": summary.get("next_step_hint"),
         "files": written,
     }
-    index_text = "\n".join(
-        [
-            f"run_id: {summary['run_id']}",
-            f"summary: {summary['summary']}",
-            f"suggested_fix: {summary.get('next_step_hint') or ''}",
-            "files:",
-            *[f"- {name}: {path}" for name, path in written.items()],
-        ]
-    )
-    written.update(
-        _write_report_bundle(
-            output_dir,
-            {
-                "index.json": _render_json(index_payload),
-                "index.txt": index_text,
-            },
+    if selected_sections is None or "index" in selected_sections:
+        index_text = "\n".join(
+            [
+                f"run_id: {summary['run_id']}",
+                f"summary: {summary['summary']}",
+                f"suggested_fix: {summary.get('next_step_hint') or ''}",
+                "files:",
+                *[f"- {name}: {path}" for name, path in written.items()],
+            ]
         )
-    )
+        written.update(
+            _write_report_bundle(
+                output_dir,
+                {
+                    "index.json": _render_json(index_payload),
+                    "index.txt": index_text,
+                },
+            )
+        )
     _dump(
         {
             "run_id": summary["run_id"],

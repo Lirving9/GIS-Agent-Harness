@@ -57,6 +57,7 @@ python3 scripts/clean_local_state.py
 - `export-report`: one-shot report bundle with state, summary, failure-file, replay outputs, and an index file
   `--latest-failed` makes the “latest failed run” path explicit instead of implicit
   If `--output-dir` is omitted, reports are written under `reports/<run_id>-<timestamp>/`
+  `--only summary,replay` limits the bundle to selected sections
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying
 - `--dry-run`: preview the reconstructed replay task and command without executing it

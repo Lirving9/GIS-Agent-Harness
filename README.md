@@ -35,8 +35,8 @@ python -m pip install -r requirements.txt
 ## Generate Sample Data
 
 ```bash
-python scripts/generate_sample_data.py
-python scripts/generate_sample_data.py --output-dir .local-fixtures
+python3 scripts/generate_sample_data.py
+python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 ```
 
 This creates:
@@ -65,7 +65,8 @@ python -m gis_agent_harness.cli show-state
 
 ```bash
 pytest -q
-python scripts/demo_task.py
+python3 scripts/demo_task.py
+python3 scripts/clean_local_state.py
 ```
 
 `demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not need to mutate `tests/fixtures/`.
@@ -85,6 +86,15 @@ The default mock router can repair:
 - missing CRS via `set_crs(...)`
 - CRS mismatch via `to_crs(...)`
 - invalid geometry via `make_valid()`
+
+## Local Hygiene
+
+```bash
+python3 scripts/clean_local_state.py
+python3 scripts/clean_local_state.py --include-fixtures
+```
+
+This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, and stale `.runs/` artifacts. Use `--include-fixtures` if you also want to remove generated `tests/fixtures/`.
 
 ## Rollback Strategy
 

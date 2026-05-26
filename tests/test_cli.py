@@ -100,6 +100,89 @@ def test_show_state_markdown_command(tmp_path: Path) -> None:
     assert "run-2" in result.output
 
 
+def test_show_state_failed_only_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-ok",
+            iteration=1,
+            stage="complete",
+            status="succeeded",
+            summary="ok",
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-fail",
+            iteration=2,
+            stage="stop",
+            status="failed",
+            summary="bad",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--failed-only",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert len(payload) == 1
+    assert payload[0]["run_id"] == "run-fail"
+
+
+def test_show_state_run_id_filter_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-a",
+            iteration=1,
+            stage="observe",
+            status="blocked",
+            summary="a",
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-b",
+            iteration=2,
+            stage="stop",
+            status="failed",
+            summary="b",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--run-id",
+            "run-b",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert len(payload) == 1
+    assert payload[0]["run_id"] == "run-b"
+
+
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     runner = CliRunner()
     result = runner.invoke(

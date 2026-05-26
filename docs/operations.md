@@ -3,8 +3,8 @@
 ## Common Commands
 
 ```bash
-python scripts/generate_sample_data.py
-python scripts/generate_sample_data.py --output-dir .local-fixtures
+python3 scripts/generate_sample_data.py
+python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 python -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
 python -m gis_agent_harness.cli run-task \
@@ -13,7 +13,8 @@ python -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python -m gis_agent_harness.cli show-state --limit 3
 pytest -q
-python scripts/demo_task.py
+python3 scripts/demo_task.py
+python3 scripts/clean_local_state.py
 ```
 
 ## Logs and Recovery
@@ -32,3 +33,8 @@ python scripts/demo_task.py
 - invalid geometry: repair with `make_valid()`
 - AST block: remove unsafe imports or dangerous calls
 - timeout: inspect `.runs/logs/<run_id>/` and tighten the generated script
+
+## Cleanup
+
+- Run `python3 scripts/clean_local_state.py` to remove local runtime directories and prune `.runs/` artifacts while preserving tracked `.gitkeep` files.
+- Run `python3 scripts/clean_local_state.py --include-fixtures` to also remove generated `tests/fixtures/`.

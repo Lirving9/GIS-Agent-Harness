@@ -100,9 +100,22 @@ def run_task_command(
 @main.command("show-state")
 @click.option("--limit", default=5, show_default=True, type=int)
 @click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--run-id", default=None, help="Filter JSON output to a specific run id.")
+@click.option("--status", default=None, help="Filter JSON output by snapshot status.")
+@click.option("--stage", default=None, help="Filter JSON output by snapshot stage.")
+@click.option("--failed-only", is_flag=True, help="Only include failed snapshots in JSON output.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_state_command(limit: int, output_format: str, state_file: Path | None, run_root: Path | None) -> None:
+def show_state_command(
+    limit: int,
+    output_format: str,
+    run_id: str | None,
+    status: str | None,
+    stage: str | None,
+    failed_only: bool,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
     """Show recent state snapshots."""
     from .state_store import StateStore
 
@@ -112,10 +125,14 @@ def show_state_command(limit: int, output_format: str, state_file: Path | None, 
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
+    if output_format == "markdown" and any(value is not None for value in (run_id, status, stage)) or (
+        output_format == "markdown" and failed_only
+    ):
+        raise click.ClickException("Filtering options are only supported with --format json.")
     if output_format == "markdown":
         click.echo(store.render_markdown())
         return
-    click.echo(store.render_recent(limit=limit))
+    click.echo(store.render_recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only))
 
 
 if __name__ == "__main__":

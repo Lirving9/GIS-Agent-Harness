@@ -2,6 +2,7 @@ approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
 [commands]
-fixtures = "python scripts/generate_sample_data.py"
+fixtures = "python3 scripts/generate_sample_data.py"
 test = "pytest -q"
-smoke = "python scripts/demo_task.py"
+smoke = "python3 scripts/demo_task.py"
+clean = "python3 scripts/clean_local_state.py"

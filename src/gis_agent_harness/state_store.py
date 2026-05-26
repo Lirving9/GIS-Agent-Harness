@@ -66,14 +66,41 @@ class StateStore:
         with self.state_file.open("a", encoding="utf-8") as handle:
             handle.writelines(lines)
 
-    def recent(self, limit: int = 5) -> list[dict[str, Any]]:
+    def _load_rows(self) -> list[dict[str, Any]]:
         if not self.state_jsonl.exists():
             return []
-        rows = [json.loads(line) for line in self.state_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [json.loads(line) for line in self.state_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    def recent(
+        self,
+        limit: int = 5,
+        *,
+        run_id: str | None = None,
+        status: str | None = None,
+        stage: str | None = None,
+        failed_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        rows = self._load_rows()
+        if run_id is not None:
+            rows = [row for row in rows if row.get("run_id") == run_id]
+        if status is not None:
+            rows = [row for row in rows if row.get("status") == status]
+        if stage is not None:
+            rows = [row for row in rows if row.get("stage") == stage]
+        if failed_only:
+            rows = [row for row in rows if row.get("status") == "failed"]
         return rows[-limit:]
 
-    def render_recent(self, limit: int = 5) -> str:
-        snapshots = self.recent(limit=limit)
+    def render_recent(
+        self,
+        limit: int = 5,
+        *,
+        run_id: str | None = None,
+        status: str | None = None,
+        stage: str | None = None,
+        failed_only: bool = False,
+    ) -> str:
+        snapshots = self.recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only)
         if not snapshots:
             return self.state_file.read_text(encoding="utf-8")
         return json.dumps(snapshots, indent=2, ensure_ascii=False)

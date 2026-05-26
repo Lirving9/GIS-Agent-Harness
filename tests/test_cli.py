@@ -557,6 +557,57 @@ def test_show_failure_files_command(tmp_path: Path) -> None:
     assert payload["failed_scripts"]
 
 
+def test_show_failure_files_table_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    log_dir = run_root / "logs" / "run-table"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-1.json").write_text("{}", encoding="utf-8")
+    (failed_dir / "run-table-iter-1.py").write_text("print('bad')\n", encoding="utf-8")
+
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-table",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "table fail", "vector_path": "table.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-table",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="sandbox_execution_failed", message="boom")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-failure-files",
+            "--format",
+            "table",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "run_id" in result.output
+    assert "run-table" in result.output
+    assert "failed_scripts" in result.output
+
+
 def test_show_failure_files_command_with_run_id(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

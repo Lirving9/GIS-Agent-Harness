@@ -71,6 +71,27 @@ def _render_state_table(rows: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
+def _render_failure_files_table(payload: dict[str, object]) -> str:
+    headers = ["run_id", "status", "stage", "log_json", "log_py", "failed_scripts"]
+    row = {
+        "run_id": str(payload.get("run_id", "")),
+        "status": str(payload.get("status", "")),
+        "stage": str(payload.get("failed_stage", "")),
+        "log_json": str(len(payload.get("log_json_files", []))),
+        "log_py": str(len(payload.get("log_py_files", []))),
+        "failed_scripts": str(len(payload.get("failed_scripts", []))),
+    }
+
+    widths = {header: max(len(header), len(row[header])) for header in headers}
+
+    def render_line(values: dict[str, str]) -> str:
+        return "  ".join(values[header].ljust(widths[header]) for header in headers)
+
+    header_row = {header: header for header in headers}
+    separator_row = {header: "-" * widths[header] for header in headers}
+    return "\n".join([render_line(header_row), render_line(separator_row), render_line(row)])
+
+
 @click.group()
 def main() -> None:
     """GIS Agent Harness CLI."""
@@ -254,9 +275,15 @@ def resume_hint_command(run_id: str | None, state_file: Path | None, run_root: P
 
 @main.command("show-failure-files")
 @click.option("--run-id", default=None, help="Show failure files for a specific run id instead of the latest failed run.")
+@click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_failure_files_command(run_id: str | None, state_file: Path | None, run_root: Path | None) -> None:
+def show_failure_files_command(
+    run_id: str | None,
+    output_format: str,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
     """Show log and failed-script paths for the latest failed run."""
     from .state_store import StateStore
 
@@ -286,6 +313,9 @@ def show_failure_files_command(run_id: str | None, state_file: Path | None, run_
         payload = store.latest_failed_run_files()
     if payload is None:
         raise click.ClickException("No matching run snapshots are available.")
+    if output_format == "table":
+        click.echo(_render_failure_files_table(payload))
+        return
     _dump(payload)
 
 

@@ -164,3 +164,37 @@ class StateStore:
             "log_py_files": log_py_files,
             "failed_scripts": failed_scripts,
         }
+
+    def latest_failed_run_replay(self) -> dict[str, Any] | None:
+        summary = self.latest_failed_run_summary()
+        if summary is None:
+            return None
+
+        task = dict(summary.get("task") or {})
+        vector_path = task.get("vector_path")
+        raster_path = task.get("raster_path")
+        source_crs = task.get("source_crs")
+        task_summary = task.get("task_summary")
+
+        command_parts = [
+            "python3",
+            "-m",
+            "gis_agent_harness.cli",
+            "run-task",
+        ]
+        if task_summary:
+            command_parts.extend(["--task-summary", task_summary])
+        if vector_path:
+            command_parts.extend(["--vector", vector_path])
+        if raster_path:
+            command_parts.extend(["--raster", raster_path])
+        if source_crs:
+            command_parts.extend(["--source-crs", source_crs])
+
+        rerun_command = " ".join(json.dumps(part, ensure_ascii=False) for part in command_parts)
+
+        return {
+            **summary,
+            "rerun_command": rerun_command,
+            "suggested_fix": summary.get("next_step_hint"),
+        }

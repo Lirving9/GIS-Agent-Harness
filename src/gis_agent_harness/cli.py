@@ -173,5 +173,24 @@ def show_failure_files_command(state_file: Path | None, run_root: Path | None) -
     _dump(payload)
 
 
+@main.command("show-replay")
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+def show_replay_command(state_file: Path | None, run_root: Path | None) -> None:
+    """Show a suggested rerun command for the latest failed run."""
+    from .state_store import StateStore
+
+    config = HarnessConfig.from_env()
+    if state_file is not None:
+        config.state_file = state_file
+    if run_root is not None:
+        config.run_root = run_root
+    store = StateStore(config.state_file, config.run_root)
+    payload = store.latest_failed_run_replay()
+    if payload is None:
+        raise click.ClickException("No failed run snapshots are available.")
+    _dump(payload)
+
+
 if __name__ == "__main__":
     main()

@@ -61,6 +61,7 @@ python3 -m gis_agent_harness.cli run-task \
 python3 -m gis_agent_harness.cli show-state
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
+python3 -m gis_agent_harness.cli show-replay
 ```
 
 ## Tests

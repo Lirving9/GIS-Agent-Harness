@@ -294,6 +294,63 @@ def test_show_failure_files_command(tmp_path: Path) -> None:
     assert payload["failed_scripts"]
 
 
+def test_show_replay_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-5",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Replay me",
+                    "vector_path": "vector.gpkg",
+                    "raster_path": "raster.tif",
+                    "source_crs": "EPSG:4326",
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-5",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[
+                Observation(
+                    code="planning_failed",
+                    message="boom",
+                    suggested_fix="provide source CRS",
+                )
+            ],
+            artifacts={"current_vector_path": "vector.gpkg"},
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-replay",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-5"
+    assert "gis_agent_harness.cli" in payload["rerun_command"]
+    assert "Replay me" in payload["rerun_command"]
+
+
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     runner = CliRunner()
     result = runner.invoke(

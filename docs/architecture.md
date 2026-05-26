@@ -12,6 +12,7 @@
 - `state_store.py`: append-only Markdown and JSONL state snapshots
 - `resume-hint`: compact summary of the latest failed run for local recovery
 - `show-failure-files`: latest failed-run log/script locator for local debugging
+- `show-replay`: suggested rerun command built from the latest failed run context
 
 ## Flow
 

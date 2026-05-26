@@ -13,6 +13,7 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state --limit 3
 python3 -m gis_agent_harness.cli resume-hint
+python3 -m gis_agent_harness.cli show-failure-files
 pytest -q
 python3 scripts/demo_task.py
 python3 scripts/clean_local_state.py
@@ -26,6 +27,7 @@ python3 scripts/clean_local_state.py
 - `.runs/failed/`: copies of blocked or failed scripts
 - `.demo-runs/fixtures/`: default isolated fixture root for `scripts/demo_task.py`
 - `resume-hint`: latest failed-run summary with task context and next-step hint
+- `show-failure-files`: latest failed-run log/script paths for direct inspection
 
 ## Failure Triage
 

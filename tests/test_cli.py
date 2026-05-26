@@ -235,6 +235,65 @@ def test_resume_hint_command(tmp_path: Path) -> None:
     assert payload["next_step_hint"] == "provide source CRS"
 
 
+def test_show_failure_files_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    log_dir = run_root / "logs" / "run-4"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-1.json").write_text("{}", encoding="utf-8")
+    (log_dir / "iter-1.py").write_text("print('x')\n", encoding="utf-8")
+    (failed_dir / "run-4-iter-1.py").write_text("print('bad')\n", encoding="utf-8")
+
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-4",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "demo fail", "vector_path": "vector.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-4",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[
+                Observation(
+                    code="sandbox_execution_failed",
+                    message="boom",
+                    suggested_fix="inspect failed script",
+                )
+            ],
+            artifacts={"current_vector_path": "vector.gpkg"},
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-failure-files",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-4"
+    assert payload["log_json_files"]
+    assert payload["log_py_files"]
+    assert payload["failed_scripts"]
+
+
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     runner = CliRunner()
     result = runner.invoke(

@@ -140,3 +140,27 @@ class StateStore:
             "artifacts": dict(stop_row.get("artifacts") or {}),
             "next_step_hint": observations[0].get("suggested_fix") if observations else None,
         }
+
+    def latest_failed_run_files(self) -> dict[str, Any] | None:
+        summary = self.latest_failed_run_summary()
+        if summary is None:
+            return None
+
+        run_id = summary["run_id"]
+        log_dir = self.run_root / "logs" / run_id
+        failed_prefix = f"{run_id}-"
+        failed_dir = self.run_root / "failed"
+
+        log_json_files = sorted(str(path) for path in log_dir.glob("*.json")) if log_dir.exists() else []
+        log_py_files = sorted(str(path) for path in log_dir.glob("*.py")) if log_dir.exists() else []
+        failed_scripts = (
+            sorted(str(path) for path in failed_dir.glob(f"{failed_prefix}*.py")) if failed_dir.exists() else []
+        )
+
+        return {
+            **summary,
+            "log_dir": str(log_dir),
+            "log_json_files": log_json_files,
+            "log_py_files": log_py_files,
+            "failed_scripts": failed_scripts,
+        }

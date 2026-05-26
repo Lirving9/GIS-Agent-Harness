@@ -501,6 +501,7 @@ def replay_last_command(
 @main.command("export-report")
 @click.option("--run-id", default=None, help="Export a report bundle for a specific run id instead of the latest failed run.")
 @click.option("--latest-failed", is_flag=True, help="Explicitly export the latest failed run.")
+@click.option("--profile", default=None, help="Predefined report profile: quick, full, or debug.")
 @click.option(
     "--only",
     default=None,
@@ -512,6 +513,7 @@ def replay_last_command(
 def export_report_command(
     run_id: str | None,
     latest_failed: bool,
+    profile: str | None,
     only: str | None,
     output_dir: Path | None,
     state_file: Path | None,
@@ -522,8 +524,19 @@ def export_report_command(
 
     if run_id is not None and latest_failed:
         raise click.ClickException("Use either --run-id or --latest-failed, not both.")
+    if profile is not None and only is not None:
+        raise click.ClickException("Use either --profile or --only, not both.")
 
     selected_sections = None
+    if profile:
+        profiles = {
+            "quick": {"summary", "replay", "index"},
+            "full": {"summary", "state", "failure-files", "replay", "index"},
+            "debug": {"state", "failure-files", "replay", "index"},
+        }
+        if profile not in profiles:
+            raise click.ClickException("Unsupported profile. Use quick, full, or debug.")
+        selected_sections = profiles[profile]
     if only:
         selected_sections = {item.strip() for item in only.split(",") if item.strip()}
         allowed_sections = {"summary", "state", "failure-files", "replay", "index"}

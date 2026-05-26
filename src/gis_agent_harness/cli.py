@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -499,10 +500,10 @@ def replay_last_command(
 
 @main.command("export-report")
 @click.option("--run-id", default=None, help="Export a report bundle for a specific run id instead of the latest failed run.")
-@click.option("--output-dir", type=click.Path(path_type=Path), required=True, help="Directory that will receive the report files.")
+@click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory that will receive the report files.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def export_report_command(run_id: str | None, output_dir: Path, state_file: Path | None, run_root: Path | None) -> None:
+def export_report_command(run_id: str | None, output_dir: Path | None, state_file: Path | None, run_root: Path | None) -> None:
     """Export a local recovery report bundle for the selected failed run."""
     from .state_store import StateStore
 
@@ -546,6 +547,10 @@ def export_report_command(run_id: str | None, output_dir: Path, state_file: Path
 
     if summary is None or files_payload is None or replay_payload is None:
         raise click.ClickException("No matching run snapshots are available.")
+
+    if output_dir is None:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        output_dir = Path("reports") / f"{selected_run_id}-{timestamp}"
 
     entries = {
         "summary.json": _render_json(summary),

@@ -72,6 +72,7 @@ python3 -m gis_agent_harness.cli show-failure-files --format table --output-file
 python3 -m gis_agent_harness.cli show-replay
 python3 -m gis_agent_harness.cli show-replay --format table
 python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
+python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
@@ -117,7 +118,7 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 ## Local Reports
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
-For a bundled snapshot, use `export-report` to write multiple report files in one step.
+For a bundled snapshot, use `export-report` to write multiple report files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`.
 
 ## Rollback Strategy
 

@@ -1215,6 +1215,65 @@ def test_export_report_command(tmp_path: Path) -> None:
     assert (report_dir / "replay.txt").exists()
 
 
+def test_export_report_command_uses_default_directory(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    log_dir = run_root / "logs" / "run-auto"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-1.json").write_text("{}", encoding="utf-8")
+    (failed_dir / "run-auto-iter-1.py").write_text("print('bad')\n", encoding="utf-8")
+
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-auto",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Auto report",
+                    "vector_path": "vector.gpkg",
+                    "raster_path": None,
+                    "source_crs": None,
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-auto",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="fix auto")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "export-report",
+            "--run-id",
+            "run-auto",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    output_dir = Path(payload["output_dir"])
+    assert output_dir.name.startswith("run-auto-")
+    assert (output_dir / "summary.json").exists()
+
+
 def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

@@ -89,11 +89,13 @@ python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4
 ```bash
 pytest -q
 python3 scripts/demo_task.py
+python3 scripts/demo_recovery.py
 python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 
 `demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not need to mutate `tests/fixtures/`.
+`demo_recovery.py` exercises the local recovery workflow end to end: fail a run, inspect it, export a bundle, preview replay, and then recover it with an explicit override.
 
 ## What `run-task` Does
 
@@ -139,4 +141,5 @@ The repository is considered complete when:
 - CLI help works for the top-level and required subcommands
 - `pytest -q` passes offline
 - `python3 scripts/demo_task.py` completes a failure -> repair -> success loop
+- `python3 scripts/demo_recovery.py` completes a failed-run discovery -> export -> replay recovery loop
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` are present

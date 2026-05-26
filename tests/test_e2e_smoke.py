@@ -66,3 +66,30 @@ def test_demo_failures_script_smoke() -> None:
     payload = json.loads(result.stdout)
     assert payload["blocked"]["blocked_by_guardrails"] is True
     assert payload["timed_out"]["timed_out"] is True
+
+
+def test_demo_recovery_script_smoke() -> None:
+    root = Path(__file__).resolve().parents[1]
+    state_dir = root / ".pytest-smoke" / "recovery"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(root / "src")
+    env["GIS_AGENT_HARNESS_RUN_ROOT"] = str(state_dir / ".runs")
+    env["GIS_AGENT_HARNESS_STATE_FILE"] = str(state_dir / "AGENT_STATE.md")
+    env["GIS_AGENT_HARNESS_FIXTURE_DIR"] = str(state_dir / "fixtures")
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "demo_recovery.py")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["initial_failure"]["status"] == "failed"
+    assert payload["resume_hint"]["run_id"] == payload["initial_failure"]["run_id"]
+    assert payload["run_list"][0]["run_id"] == payload["initial_failure"]["run_id"]
+    assert payload["dry_run"]["mode"] == "dry-run"
+    assert payload["report_index"]["run_id"] == payload["initial_failure"]["run_id"]
+    assert payload["recovery_run"]["status"] == "succeeded"

@@ -28,3 +28,25 @@ def test_demo_task_smoke() -> None:
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
         assert payload["status"] == "succeeded"
+
+
+def test_generate_sample_data_script_supports_isolated_output() -> None:
+    root = Path(__file__).resolve().parents[1]
+    output_dir = root / ".pytest-smoke" / "isolated-fixtures"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "generate_sample_data.py"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PYTHONPATH": str(root / "src"), **os.environ},
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["sample_gpkg"].startswith(str(output_dir))
+    assert (output_dir / "vector" / "sample.gpkg").exists()

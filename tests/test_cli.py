@@ -66,3 +66,28 @@ def test_show_state_command(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "run-1" in result.output
+
+
+def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-task",
+            "--task-summary",
+            "Align vector CRS to raster CRS",
+            "--vector",
+            fixture_paths["sample_3857"],
+            "--raster",
+            fixture_paths["sample_raster"],
+            "--run-root",
+            str(tmp_path / ".runs"),
+            "--state-file",
+            str(tmp_path / "AGENT_STATE.md"),
+            "--mock",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["status"] == "succeeded"
+    assert payload["iterations"] == 1

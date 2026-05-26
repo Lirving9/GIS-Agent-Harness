@@ -1211,6 +1211,8 @@ def test_export_report_command(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert payload["run_id"] == "run-report"
     assert (report_dir / "summary.json").exists()
+    assert (report_dir / "state.json").exists()
+    assert (report_dir / "state.txt").exists()
     assert (report_dir / "failure-files.txt").exists()
     assert (report_dir / "replay.txt").exists()
     assert (report_dir / "index.json").exists()

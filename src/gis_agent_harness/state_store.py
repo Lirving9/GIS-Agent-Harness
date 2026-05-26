@@ -91,6 +91,9 @@ class StateStore:
             rows = [row for row in rows if row.get("status") == "failed"]
         return rows[-limit:]
 
+    def rows_for_run(self, run_id: str) -> list[dict[str, Any]]:
+        return [row for row in self._load_rows() if row.get("run_id") == run_id]
+
     def render_recent(
         self,
         limit: int = 5,

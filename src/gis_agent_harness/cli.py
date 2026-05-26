@@ -548,6 +548,8 @@ def export_report_command(run_id: str | None, output_dir: Path | None, state_fil
     if summary is None or files_payload is None or replay_payload is None:
         raise click.ClickException("No matching run snapshots are available.")
 
+    run_rows = store.rows_for_run(selected_run_id)
+
     if output_dir is None:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         output_dir = Path("reports") / f"{selected_run_id}-{timestamp}"
@@ -555,6 +557,8 @@ def export_report_command(run_id: str | None, output_dir: Path | None, state_fil
     entries = {
         "summary.json": _render_json(summary),
         "summary.txt": _render_replay_table({**summary, "suggested_fix": summary.get("next_step_hint")}),
+        "state.json": _render_json(run_rows),
+        "state.txt": _render_state_table(run_rows),
         "failure-files.json": _render_json(files_payload),
         "failure-files.txt": _render_failure_files_table(files_payload),
         "replay.json": _render_json(replay_payload),

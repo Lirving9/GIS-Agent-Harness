@@ -29,6 +29,7 @@ python3 -m gis_agent_harness.cli export-report --latest-failed
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --profile quick
+python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
@@ -60,6 +61,7 @@ python3 scripts/clean_local_state.py
   If `--output-dir` is omitted, reports are written under `reports/<run_id>-<timestamp>/`
   `--profile quick|full|debug` provides common bundle presets
   `--only summary,replay` limits the bundle to selected sections
+  `--print-index` echoes the generated index summary to the terminal after export
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying
 - `--dry-run`: preview the reconstructed replay task and command without executing it

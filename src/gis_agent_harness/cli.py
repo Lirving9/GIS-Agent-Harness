@@ -124,6 +124,19 @@ def _render_replay_table(payload: dict[str, object]) -> str:
     return "\n".join([render_line(header_row), render_line(separator_row), render_line(row)])
 
 
+def _render_index_text(payload: dict[str, object]) -> str:
+    files = payload.get("files", {})
+    lines = [
+        f"run_id: {payload['run_id']}",
+        f"output_dir: {payload['output_dir']}",
+        f"summary: {payload['summary']}",
+        f"suggested_fix: {payload.get('suggested_fix') or ''}",
+        "files:",
+    ]
+    lines.extend(f"- {name}: {path}" for name, path in files.items())
+    return "\n".join(lines)
+
+
 def _write_report_bundle(report_dir: Path, entries: dict[str, str]) -> dict[str, str]:
     report_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, str] = {}
@@ -507,6 +520,7 @@ def replay_last_command(
     default=None,
     help="Comma-separated subset of report sections to export: summary,state,failure-files,replay,index.",
 )
+@click.option("--print-index", is_flag=True, help="Print the generated report index instead of the default JSON summary.")
 @click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory that will receive the report files.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
@@ -515,6 +529,7 @@ def export_report_command(
     latest_failed: bool,
     profile: str | None,
     only: str | None,
+    print_index: bool,
     output_dir: Path | None,
     state_file: Path | None,
     run_root: Path | None,
@@ -543,6 +558,9 @@ def export_report_command(
         unknown = selected_sections - allowed_sections
         if unknown:
             raise click.ClickException(f"Unsupported report section(s): {', '.join(sorted(unknown))}")
+    if print_index and selected_sections is not None:
+        selected_sections = set(selected_sections)
+        selected_sections.add("index")
 
     config = HarnessConfig.from_env()
     if state_file is not None:
@@ -608,38 +626,41 @@ def export_report_command(
         entries["replay.json"] = _render_json(replay_payload)
         entries["replay.txt"] = _render_replay_table(replay_payload)
     written = _write_report_bundle(output_dir, entries)
-    index_payload = {
-        "run_id": summary["run_id"],
-        "summary": summary["summary"],
-        "suggested_fix": summary.get("next_step_hint"),
-        "files": written,
-    }
+    index_text = None
     if selected_sections is None or "index" in selected_sections:
-        index_text = "\n".join(
-            [
-                f"run_id: {summary['run_id']}",
-                f"summary: {summary['summary']}",
-                f"suggested_fix: {summary.get('next_step_hint') or ''}",
-                "files:",
-                *[f"- {name}: {path}" for name, path in written.items()],
-            ]
-        )
-        written.update(
-            _write_report_bundle(
-                output_dir,
-                {
-                    "index.json": _render_json(index_payload),
-                    "index.txt": index_text,
-                },
-            )
-        )
-    _dump(
-        {
+        final_written = {
+            **written,
+            "index.json": str(output_dir / "index.json"),
+            "index.txt": str(output_dir / "index.txt"),
+        }
+        index_payload = {
             "run_id": summary["run_id"],
             "output_dir": str(output_dir),
-            "files": written,
+            "summary": summary["summary"],
+            "suggested_fix": summary.get("next_step_hint"),
+            "files": final_written,
         }
-    )
+        index_text = _render_index_text(index_payload)
+        _write_report_bundle(
+            output_dir,
+            {
+                "index.json": _render_json(index_payload),
+                "index.txt": index_text,
+            },
+        )
+        written = final_written
+
+    payload = {
+        "run_id": summary["run_id"],
+        "output_dir": str(output_dir),
+        "files": written,
+    }
+    if print_index:
+        if index_text is None:
+            raise click.ClickException("Unable to print the index for this report bundle.")
+        _emit_text(index_text)
+        return
+    _dump(payload)
 
 
 if __name__ == "__main__":

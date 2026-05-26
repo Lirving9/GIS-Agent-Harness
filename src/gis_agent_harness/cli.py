@@ -270,6 +270,7 @@ def show_replay_command(run_id: str | None, state_file: Path | None, run_root: P
 @click.option("--max-iterations", default=None, type=int, help="Override max iterations for the replayed run.")
 @click.option("--mock/--live", "use_mock", default=None, help="Use mock or live LiteLLM routing.")
 @click.option("--dry-run", is_flag=True, help="Print the reconstructed replay task without executing it.")
+@click.option("--confirm", is_flag=True, help="Required to execute a replay against local data.")
 def replay_last_command(
     run_id: str | None,
     state_file: Path | None,
@@ -278,6 +279,7 @@ def replay_last_command(
     max_iterations: int | None,
     use_mock: bool | None,
     dry_run: bool,
+    confirm: bool,
 ) -> None:
     """Replay the latest failed run using its stored task context."""
     from .agent_loop import AgentLoop, AgentTask
@@ -325,6 +327,8 @@ def replay_last_command(
             }
         )
         return
+    if not confirm:
+        raise click.ClickException("Replay execution requires --confirm. Use --dry-run to inspect the task first.")
     router = LLMRouter(
         primary_model=config.primary_model,
         fallback_model=config.fallback_model,

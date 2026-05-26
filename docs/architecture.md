@@ -18,6 +18,7 @@
 - `replay-last`: execute a new run from the latest failed task context with optional overrides
 - `run_id` filters on replay/summary commands let local recovery target any recorded run, not just the latest failure
 - `replay-last --dry-run`: inspect the reconstructed replay task before executing it
+- `replay-last --confirm`: explicit execution gate for real local replays
 
 ## Flow
 

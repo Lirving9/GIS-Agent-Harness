@@ -683,6 +683,7 @@ def test_replay_last_command_with_override(tmp_path: Path, fixture_paths: dict[s
             "--source-crs",
             "EPSG:4326",
             "--mock",
+            "--confirm",
         ],
     )
     assert result.exit_code == 0
@@ -737,6 +738,7 @@ def test_replay_last_command_with_run_id(tmp_path: Path, fixture_paths: dict[str
             "--source-crs",
             "EPSG:4326",
             "--mock",
+            "--confirm",
         ],
     )
     assert result.exit_code == 0
@@ -798,6 +800,59 @@ def test_replay_last_command_dry_run(tmp_path: Path, fixture_paths: dict[str, st
     assert payload["mode"] == "dry-run"
     assert payload["task"]["source_crs"] == "EPSG:4326"
     assert "gis_agent_harness.cli" in payload["rerun_command"]
+
+
+def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-20",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Need confirm",
+                    "vector_path": fixture_paths["missing_crs"],
+                    "raster_path": None,
+                    "source_crs": None,
+                    "max_iterations": 2,
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-20",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="provide source CRS")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "replay-last",
+            "--run-id",
+            "run-20",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+            "--source-crs",
+            "EPSG:4326",
+            "--mock",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "--confirm" in result.output
 
 
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:

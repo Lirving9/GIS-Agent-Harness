@@ -123,3 +123,53 @@ def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None
     payload = json.loads(result.output)
     assert payload["status"] == "succeeded"
     assert payload["iterations"] == 1
+
+
+def test_run_task_command_repairs_missing_crs(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-task",
+            "--task-summary",
+            "Declare the missing CRS",
+            "--vector",
+            fixture_paths["missing_crs"],
+            "--source-crs",
+            "EPSG:4326",
+            "--run-root",
+            str(tmp_path / ".runs"),
+            "--state-file",
+            str(tmp_path / "AGENT_STATE.md"),
+            "--mock",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["status"] == "succeeded"
+
+
+def test_run_task_command_fails_without_source_crs(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "run-task",
+            "--task-summary",
+            "Fail without source CRS",
+            "--vector",
+            fixture_paths["missing_crs"],
+            "--run-root",
+            str(tmp_path / ".runs"),
+            "--state-file",
+            str(tmp_path / "AGENT_STATE.md"),
+            "--mock",
+            "--max-iterations",
+            "2",
+        ],
+    )
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["status"] == "failed"
+    assert "planning failed" in payload["summary"].lower()
+    assert any(item["code"] == "planning_failed" for item in payload["observations"])

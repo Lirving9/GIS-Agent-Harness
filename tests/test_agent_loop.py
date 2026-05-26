@@ -96,7 +96,7 @@ def test_agent_loop_repairs_missing_crs(tmp_path: Path, fixture_paths: dict[str,
     assert not preflight_dataset_checks(result.final_vector_path)
 
 
-def test_agent_loop_records_failed_stop_state(tmp_path: Path) -> None:
+def test_agent_loop_records_failed_stop_state(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     config = HarnessConfig(
         run_root=tmp_path / ".runs",
         state_file=tmp_path / "AGENT_STATE.md",
@@ -115,14 +115,16 @@ def test_agent_loop_records_failed_stop_state(tmp_path: Path) -> None:
     loop = AgentLoop(config=config, router=router)
     task = AgentTask(
         task_summary="Fail because source CRS was not provided.",
-        vector_path=str(tmp_path / "missing_crs.shp"),
+        vector_path=fixture_paths["missing_crs"],
         max_iterations=2,
     )
 
     result = loop.run(task)
 
     assert result.status == "failed"
-    assert "repeated" in result.summary or "maximum iteration" in result.summary
+    assert "planning failed" in result.summary.lower()
+    assert any(item.code == "planning_failed" for item in result.observations)
     store = StateStore(config.state_file, config.run_root)
     recent = store.recent(limit=10)
+    assert any(item["stage"] == "thought" and item["status"] == "failed" for item in recent)
     assert any(item["stage"] == "stop" and item["status"] == "failed" for item in recent)

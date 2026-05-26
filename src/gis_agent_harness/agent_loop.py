@@ -143,16 +143,64 @@ class AgentLoop:
                 )
             repeated_fingerprints.add(fingerprint)
 
-            decision = self.router.plan_repair(
-                task_summary=task.task_summary,
-                observations=observations,
-                current_vector_path=current_vector_path,
-                raster_path=task.raster_path,
-                run_root=self.config.run_root,
-                run_id=run_id,
-                iteration=iteration,
-                source_crs=task.source_crs,
-            )
+            try:
+                decision = self.router.plan_repair(
+                    task_summary=task.task_summary,
+                    observations=observations,
+                    current_vector_path=current_vector_path,
+                    raster_path=task.raster_path,
+                    run_root=self.config.run_root,
+                    run_id=run_id,
+                    iteration=iteration,
+                    source_crs=task.source_crs,
+                )
+            except Exception as exc:
+                failure_observation = Observation(
+                    code="planning_failed",
+                    message=str(exc),
+                    suggested_fix=(
+                        "Provide --source-crs when repairing a vector dataset with missing CRS metadata."
+                        if any(item.code == "missing_crs" for item in observations)
+                        else "Inspect the router configuration, fallback chain, and repair context."
+                    ),
+                    details={
+                        "current_vector_path": str(current_vector_path),
+                        "raster_path": task.raster_path,
+                        "source_crs": task.source_crs,
+                    },
+                )
+                summary = f"Repair planning failed: {exc}"
+                self.state_store.append(
+                    StateSnapshot(
+                        run_id=run_id,
+                        iteration=iteration,
+                        stage="thought",
+                        status="failed",
+                        summary=summary,
+                        observations=[failure_observation],
+                        artifacts={"current_vector_path": str(current_vector_path)},
+                    )
+                )
+                self.state_store.append(
+                    StateSnapshot(
+                        run_id=run_id,
+                        iteration=iteration,
+                        stage="stop",
+                        status="failed",
+                        summary=summary,
+                        observations=[*observations, failure_observation],
+                        artifacts={"current_vector_path": str(current_vector_path)},
+                    )
+                )
+                return AgentRunResult(
+                    status="failed",
+                    run_id=run_id,
+                    iterations=iteration,
+                    final_vector_path=str(current_vector_path),
+                    summary=summary,
+                    observations=[*observations, failure_observation],
+                    decisions=decision_history,
+                )
             decision_history.append(decision)
             self.state_store.append(
                 StateSnapshot(

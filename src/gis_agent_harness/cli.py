@@ -94,7 +94,7 @@ def run_task_command(
     result = loop.run(task)
     _dump(result.to_dict())
     if result.status != "succeeded":
-        raise click.ClickException(result.summary)
+        raise click.exceptions.Exit(1)
 
 
 @main.command("show-state")

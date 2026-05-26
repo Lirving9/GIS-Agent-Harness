@@ -14,6 +14,7 @@ def test_demo_task_smoke() -> None:
     env["PYTHONPATH"] = str(root / "src")
     env["GIS_AGENT_HARNESS_RUN_ROOT"] = str(state_dir / ".runs")
     env["GIS_AGENT_HARNESS_STATE_FILE"] = str(state_dir / "AGENT_STATE.md")
+    env["GIS_AGENT_HARNESS_FIXTURE_DIR"] = str(state_dir / "fixtures")
 
     for _ in range(2):
         result = subprocess.run(

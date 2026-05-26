@@ -4,6 +4,7 @@
 
 ```bash
 python scripts/generate_sample_data.py
+python scripts/generate_sample_data.py --output-dir .local-fixtures
 python -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
 python -m gis_agent_harness.cli run-task \
@@ -21,6 +22,7 @@ python scripts/demo_task.py
 - `.runs/state.jsonl`: machine-readable append-only snapshots
 - `.runs/logs/<run_id>/`: per-step scripts and sandbox results
 - `.runs/failed/`: copies of blocked or failed scripts
+- `.demo-runs/fixtures/`: default isolated fixture root for `scripts/demo_task.py`
 
 ## Failure Triage
 

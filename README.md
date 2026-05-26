@@ -36,6 +36,7 @@ python -m pip install -r requirements.txt
 
 ```bash
 python scripts/generate_sample_data.py
+python scripts/generate_sample_data.py --output-dir .local-fixtures
 ```
 
 This creates:
@@ -66,6 +67,8 @@ python -m gis_agent_harness.cli show-state
 pytest -q
 python scripts/demo_task.py
 ```
+
+`demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not need to mutate `tests/fixtures/`.
 
 ## What `run-task` Does
 

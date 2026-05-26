@@ -14,5 +14,6 @@ from gis_agent_harness.sample_data import generate_sample_data
 
 
 @pytest.fixture(scope="session")
-def fixture_paths() -> dict[str, str]:
-    return generate_sample_data(ROOT / "tests" / "fixtures")
+def fixture_paths(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
+    fixture_dir = tmp_path_factory.mktemp("fixtures")
+    return generate_sample_data(fixture_dir)

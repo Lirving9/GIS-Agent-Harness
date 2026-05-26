@@ -17,12 +17,13 @@ from gis_agent_harness.sample_data import generate_sample_data
 
 
 def main() -> None:
-    fixtures = generate_sample_data(ROOT / "tests" / "fixtures")
     config = HarnessConfig.from_env()
     if "GIS_AGENT_HARNESS_RUN_ROOT" not in os.environ:
         config.run_root = ROOT / ".demo-runs"
     if "GIS_AGENT_HARNESS_STATE_FILE" not in os.environ:
         config.state_file = ROOT / ".demo-runs" / "AGENT_STATE.md"
+    fixture_dir = Path(os.getenv("GIS_AGENT_HARNESS_FIXTURE_DIR", str(config.run_root / "fixtures")))
+    fixtures = generate_sample_data(fixture_dir)
     config.use_mock = True
     router = LLMRouter(
         primary_model=config.primary_model,

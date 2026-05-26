@@ -14,6 +14,7 @@
 - Use `python3 -m gis_agent_harness.cli show-failure-files` to jump straight to failed scripts and log JSON files.
 - Use `python3 -m gis_agent_harness.cli show-replay` to reconstruct a recommended local rerun command.
 - Use `python3 -m gis_agent_harness.cli export-report --latest-failed --print-index` when you want a saved recovery bundle plus an immediate terminal summary.
+- Use `python3 -m gis_agent_harness.cli show-report --latest` to reopen the newest saved bundle during local recovery work.
 - Use `python3 -m gis_agent_harness.cli replay-last --source-crs ...` when a failed run only needs a small input override.
 - Prefer `--run-id` on recovery commands when multiple failed runs exist in local state.
 - Prefer `--dry-run` on `replay-last` before executing a replay against non-trivial local data.

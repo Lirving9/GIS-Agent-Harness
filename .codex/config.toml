@@ -15,3 +15,5 @@ replay_by_id = "python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --s
 list_failures = "python3 -m gis_agent_harness.cli list-runs --failed-only"
 replay_dry_run = "python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run"
 list_filtered = "python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry"
+export_latest_report = "python3 -m gis_agent_harness.cli export-report --latest-failed --print-index"
+show_latest_report = "python3 -m gis_agent_harness.cli show-report --latest"

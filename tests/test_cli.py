@@ -18,6 +18,7 @@ def test_cli_help() -> None:
     assert "inspect-raster" in result.output
     assert "run-task" in result.output
     assert "show-state" in result.output
+    assert "show-report" in result.output
 
 
 def test_inspect_vector_command(fixture_paths: dict[str, str]) -> None:
@@ -1588,6 +1589,85 @@ def test_export_report_command_prints_index_and_lists_index_files(tmp_path: Path
     assert (report_dir / "summary.json").exists()
     assert (report_dir / "replay.json").exists()
     assert (report_dir / "index.json").exists()
+
+
+def test_show_report_command_reads_specific_bundle_json(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run-specific-20260527T000000Z"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "summary.json").write_text('{"run_id":"run-specific","status":"failed"}\n', encoding="utf-8")
+    (report_dir / "summary.txt").write_text("summary text\n", encoding="utf-8")
+    (report_dir / "index.json").write_text('{"run_id":"run-specific","files":{"summary.json":"x"}}\n', encoding="utf-8")
+    (report_dir / "index.txt").write_text("index text\n", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-report",
+            "--report-dir",
+            str(report_dir),
+            "--section",
+            "summary",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-specific"
+    assert payload["status"] == "failed"
+
+
+def test_show_report_command_defaults_to_latest_bundle(tmp_path: Path) -> None:
+    reports_root = tmp_path / "reports"
+    older = reports_root / "run-old-20260527T000000Z"
+    newer = reports_root / "run-new-20260527T010000Z"
+    older.mkdir(parents=True, exist_ok=True)
+    newer.mkdir(parents=True, exist_ok=True)
+    (older / "index.txt").write_text("run_id: run-old\n", encoding="utf-8")
+    (newer / "index.txt").write_text("run_id: run-new\n", encoding="utf-8")
+    (older / "index.json").write_text('{"run_id":"run-old"}\n', encoding="utf-8")
+    (newer / "index.json").write_text('{"run_id":"run-new"}\n', encoding="utf-8")
+
+    older_time = 1_700_000_000
+    newer_time = older_time + 10
+    import os
+
+    os.utime(older, (older_time, older_time))
+    os.utime(newer, (newer_time, newer_time))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-report",
+            "--reports-root",
+            str(reports_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "run_id: run-new" in result.output
+
+
+def test_show_report_command_rejects_missing_section(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run-missing-20260527T000000Z"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "index.txt").write_text("run_id: run-missing\n", encoding="utf-8")
+    (report_dir / "index.json").write_text('{"run_id":"run-missing"}\n', encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-report",
+            "--report-dir",
+            str(report_dir),
+            "--section",
+            "replay",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Report section is not available" in result.output
 
 
 def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:

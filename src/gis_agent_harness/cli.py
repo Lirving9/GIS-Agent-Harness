@@ -137,6 +137,19 @@ def _render_index_text(payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def _resolve_latest_report_dir(reports_root: Path) -> Path | None:
+    if not reports_root.exists():
+        return None
+    candidates = [
+        path
+        for path in reports_root.iterdir()
+        if path.is_dir() and ((path / "index.json").exists() or (path / "index.txt").exists())
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
 def _write_report_bundle(report_dir: Path, entries: dict[str, str]) -> dict[str, str]:
     report_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, str] = {}
@@ -430,6 +443,52 @@ def show_replay_command(
         _emit_text(_render_replay_table(payload), output_file=output_file)
         return
     _dump(payload, output_file=output_file)
+
+
+@main.command("show-report")
+@click.option("--report-dir", type=click.Path(path_type=Path), default=None, help="Read a specific exported report bundle directory.")
+@click.option("--latest", is_flag=True, help="Read the most recent bundle under the reports root.")
+@click.option("--reports-root", type=click.Path(path_type=Path), default=Path("reports"), show_default=True)
+@click.option(
+    "--section",
+    type=click.Choice(["index", "summary", "state", "failure-files", "replay"]),
+    default="index",
+    show_default=True,
+)
+@click.option("--format", "output_format", type=click.Choice(["json", "text"]), default="text", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
+def show_report_command(
+    report_dir: Path | None,
+    latest: bool,
+    reports_root: Path,
+    section: str,
+    output_format: str,
+    output_file: Path | None,
+) -> None:
+    """Show a previously exported local report bundle."""
+    if report_dir is not None and latest:
+        raise click.ClickException("Use either --report-dir or --latest, not both.")
+
+    resolved_dir = report_dir
+    if resolved_dir is None:
+        resolved_dir = _resolve_latest_report_dir(reports_root)
+        if resolved_dir is None:
+            raise click.ClickException("No exported report bundles are available.")
+    if not resolved_dir.exists() or not resolved_dir.is_dir():
+        raise click.ClickException("Report directory does not exist.")
+
+    suffix = "json" if output_format == "json" else "txt"
+    filenames = {
+        "index": {"json": "index.json", "text": "index.txt"},
+        "summary": {"json": "summary.json", "text": "summary.txt"},
+        "state": {"json": "state.json", "text": "state.txt"},
+        "failure-files": {"json": "failure-files.json", "text": "failure-files.txt"},
+        "replay": {"json": "replay.json", "text": "replay.txt"},
+    }
+    artifact_path = resolved_dir / filenames[section][output_format]
+    if not artifact_path.exists():
+        raise click.ClickException(f"Report section is not available: {section} ({output_format}).")
+    _emit_text(artifact_path.read_text(encoding="utf-8").rstrip("\n"), output_file=output_file)
 
 
 @main.command("replay-last")

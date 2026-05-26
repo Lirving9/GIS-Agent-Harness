@@ -77,6 +77,8 @@ python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --profile quick
 python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
+python3 -m gis_agent_harness.cli show-report --latest
+python3 -m gis_agent_harness.cli show-report --report-dir reports/RUN_ID-TIMESTAMP --section replay
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
@@ -121,7 +123,7 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 ## Local Reports
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
-For a bundled snapshot, use `export-report` to write state, summary, failure, replay, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export.
+For a bundled snapshot, use `export-report` to write state, summary, failure, replay, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export. Use `show-report` to re-open the latest bundle or a specific bundle directory without hunting through files manually.
 
 ## Rollback Strategy
 

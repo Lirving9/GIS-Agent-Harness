@@ -99,9 +99,10 @@ def run_task_command(
 
 @main.command("show-state")
 @click.option("--limit", default=5, show_default=True, type=int)
+@click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_state_command(limit: int, state_file: Path | None, run_root: Path | None) -> None:
+def show_state_command(limit: int, output_format: str, state_file: Path | None, run_root: Path | None) -> None:
     """Show recent state snapshots."""
     from .state_store import StateStore
 
@@ -111,6 +112,9 @@ def show_state_command(limit: int, state_file: Path | None, run_root: Path | Non
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
+    if output_format == "markdown":
+        click.echo(store.render_markdown())
+        return
     click.echo(store.render_recent(limit=limit))
 
 

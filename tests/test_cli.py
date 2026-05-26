@@ -68,6 +68,38 @@ def test_show_state_command(tmp_path: Path) -> None:
     assert "run-1" in result.output
 
 
+def test_show_state_markdown_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-2",
+            iteration=2,
+            stage="complete",
+            status="succeeded",
+            summary="done",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--format",
+            "markdown",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "# Agent State" in result.output
+    assert "run-2" in result.output
+
+
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     runner = CliRunner()
     result = runner.invoke(

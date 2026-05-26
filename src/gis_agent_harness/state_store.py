@@ -77,3 +77,7 @@ class StateStore:
         if not snapshots:
             return self.state_file.read_text(encoding="utf-8")
         return json.dumps(snapshots, indent=2, ensure_ascii=False)
+
+    def render_markdown(self) -> str:
+        self._ensure_markdown_header()
+        return self.state_file.read_text(encoding="utf-8")

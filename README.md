@@ -51,14 +51,15 @@ This creates:
 ## CLI
 
 ```bash
-python -m gis_agent_harness.cli --help
-python -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
-python -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
-python -m gis_agent_harness.cli run-task \
+python3 -m gis_agent_harness.cli --help
+python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
+python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
   --raster tests/fixtures/raster/sample.tif
-python -m gis_agent_harness.cli show-state
+python3 -m gis_agent_harness.cli show-state
+python3 -m gis_agent_harness.cli resume-hint
 ```
 
 ## Tests
@@ -109,5 +110,5 @@ The repository is considered complete when:
 
 - CLI help works for the top-level and required subcommands
 - `pytest -q` passes offline
-- `python scripts/demo_task.py` completes a failure -> repair -> success loop
+- `python3 scripts/demo_task.py` completes a failure -> repair -> success loop
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` are present

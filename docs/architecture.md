@@ -10,6 +10,7 @@
 - `sandbox.py`: subprocess wrapper with timeout and failed-script capture
 - `agent_loop.py`: minimal ReAct loop with repeated-error detection
 - `state_store.py`: append-only Markdown and JSONL state snapshots
+- `resume-hint`: compact summary of the latest failed run for local recovery
 
 ## Flow
 

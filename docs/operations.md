@@ -5,13 +5,14 @@
 ```bash
 python3 scripts/generate_sample_data.py
 python3 scripts/generate_sample_data.py --output-dir .local-fixtures
-python -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
-python -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
-python -m gis_agent_harness.cli run-task \
+python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
+python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
   --raster tests/fixtures/raster/sample.tif
-python -m gis_agent_harness.cli show-state --limit 3
+python3 -m gis_agent_harness.cli show-state --limit 3
+python3 -m gis_agent_harness.cli resume-hint
 pytest -q
 python3 scripts/demo_task.py
 python3 scripts/clean_local_state.py
@@ -24,6 +25,7 @@ python3 scripts/clean_local_state.py
 - `.runs/logs/<run_id>/`: per-step scripts and sandbox results
 - `.runs/failed/`: copies of blocked or failed scripts
 - `.demo-runs/fixtures/`: default isolated fixture root for `scripts/demo_task.py`
+- `resume-hint`: latest failed-run summary with task context and next-step hint
 
 ## Failure Triage
 

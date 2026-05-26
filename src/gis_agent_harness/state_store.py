@@ -108,3 +108,35 @@ class StateStore:
     def render_markdown(self) -> str:
         self._ensure_markdown_header()
         return self.state_file.read_text(encoding="utf-8")
+
+    def latest_failed_run_summary(self) -> dict[str, Any] | None:
+        rows = self._load_rows()
+        failed_rows = [row for row in rows if row.get("status") == "failed"]
+        if not failed_rows:
+            return None
+
+        stop_row = failed_rows[-1]
+        run_id = stop_row.get("run_id")
+        run_rows = [row for row in rows if row.get("run_id") == run_id]
+        task_row = next((row for row in run_rows if row.get("stage") == "start"), None)
+        failed_stage_row = next(
+            (
+                row
+                for row in reversed(run_rows)
+                if row.get("status") == "failed" and row.get("stage") in {"thought", "action", "stop"}
+            ),
+            stop_row,
+        )
+        task_payload = dict(((task_row or {}).get("artifacts") or {}).get("task") or {})
+        observations = list(stop_row.get("observations") or [])
+
+        return {
+            "run_id": run_id,
+            "status": stop_row.get("status"),
+            "summary": stop_row.get("summary"),
+            "failed_stage": failed_stage_row.get("stage"),
+            "task": task_payload,
+            "observations": observations,
+            "artifacts": dict(stop_row.get("artifacts") or {}),
+            "next_step_hint": observations[0].get("suggested_fix") if observations else None,
+        }

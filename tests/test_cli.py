@@ -6,6 +6,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from gis_agent_harness.cli import main
+from gis_agent_harness.errors import Observation
 from gis_agent_harness.state_store import StateSnapshot, StateStore
 
 
@@ -181,6 +182,57 @@ def test_show_state_run_id_filter_command(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert len(payload) == 1
     assert payload[0]["run_id"] == "run-b"
+
+
+def test_resume_hint_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-3",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "demo", "vector_path": "vector.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-3",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[
+                Observation(
+                    code="planning_failed",
+                    message="boom",
+                    suggested_fix="provide source CRS",
+                )
+            ],
+            artifacts={"current_vector_path": "vector.gpkg"},
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "resume-hint",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-3"
+    assert payload["summary"] == "failed summary"
+    assert payload["task"]["task_summary"] == "demo"
+    assert payload["next_step_hint"] == "provide source CRS"
 
 
 def test_run_task_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:

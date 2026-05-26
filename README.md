@@ -69,6 +69,7 @@ python3 -m gis_agent_harness.cli show-replay
 ```bash
 pytest -q
 python3 scripts/demo_task.py
+python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 

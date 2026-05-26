@@ -17,6 +17,7 @@ python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-replay
 pytest -q
 python3 scripts/demo_task.py
+python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 
@@ -39,6 +40,7 @@ python3 scripts/clean_local_state.py
 - invalid geometry: repair with `make_valid()`
 - AST block: remove unsafe imports or dangerous calls
 - timeout: inspect `.runs/logs/<run_id>/` and tighten the generated script
+- `python3 scripts/demo_failures.py` exercises both a guardrail-blocked script and a timeout path
 
 ## Cleanup
 

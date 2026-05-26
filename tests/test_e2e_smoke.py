@@ -50,3 +50,19 @@ def test_generate_sample_data_script_supports_isolated_output() -> None:
     payload = json.loads(result.stdout)
     assert payload["sample_gpkg"].startswith(str(output_dir))
     assert (output_dir / "vector" / "sample.gpkg").exists()
+
+
+def test_demo_failures_script_smoke() -> None:
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "demo_failures.py")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PYTHONPATH": str(root / "src"), **os.environ},
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["blocked"]["blocked_by_guardrails"] is True
+    assert payload["timed_out"]["timed_out"] is True

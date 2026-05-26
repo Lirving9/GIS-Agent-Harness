@@ -17,6 +17,7 @@ __pycache__/
 .demo-runs/
 .pytest-smoke/
 .local-fixtures/
+reports/
 !.runs/logs/.gitkeep
 !.runs/failed/.gitkeep
 !.runs/artifacts/.gitkeep

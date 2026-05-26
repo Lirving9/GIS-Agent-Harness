@@ -271,6 +271,50 @@ def test_list_runs_failed_only_command(tmp_path: Path) -> None:
     assert payload[0]["run_id"] == "run-15"
 
 
+def test_list_runs_table_format_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-table",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "Tabular run", "vector_path": "tab.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-table",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed",
+            observations=[Observation(code="planning_failed", message="boom")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "list-runs",
+            "--format",
+            "table",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "run_id" in result.output
+    assert "run-table" in result.output
+    assert "Tabular run" in result.output
+
+
 def test_list_runs_status_stage_contains_filters(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

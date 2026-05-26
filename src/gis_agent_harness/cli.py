@@ -13,6 +13,35 @@ def _dump(payload: object) -> None:
     click.echo(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
+def _render_runs_table(rows: list[dict[str, object]]) -> str:
+    headers = ["run_id", "status", "stage", "task_summary"]
+    table_rows = []
+    for row in rows:
+        table_rows.append(
+            {
+                "run_id": str(row.get("run_id", "")),
+                "status": str(row.get("status", "")),
+                "stage": str(row.get("failed_stage", "")),
+                "task_summary": str((row.get("task") or {}).get("task_summary", "")),
+            }
+        )
+
+    widths = {header: len(header) for header in headers}
+    for row in table_rows:
+        for header in headers:
+            widths[header] = max(widths[header], len(row[header]))
+
+    def render_line(values: dict[str, str]) -> str:
+        return "  ".join(values[header].ljust(widths[header]) for header in headers)
+
+    header_row = {header: header for header in headers}
+    separator_row = {header: "-" * widths[header] for header in headers}
+    lines = [render_line(header_row), render_line(separator_row)]
+    for row in table_rows:
+        lines.append(render_line(row))
+    return "\n".join(lines)
+
+
 @click.group()
 def main() -> None:
     """GIS Agent Harness CLI."""
@@ -141,6 +170,7 @@ def show_state_command(
 @click.option("--status", default=None, help="Filter runs by terminal status, for example failed or succeeded.")
 @click.option("--stage", default=None, help="Filter runs by terminal stage, for example stop or complete.")
 @click.option("--contains", default=None, help="Filter by run id or task summary substring.")
+@click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def list_runs_command(
@@ -149,6 +179,7 @@ def list_runs_command(
     status: str | None,
     stage: str | None,
     contains: str | None,
+    output_format: str,
     state_file: Path | None,
     run_root: Path | None,
 ) -> None:
@@ -161,7 +192,11 @@ def list_runs_command(
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
-    _dump(store.query_runs(limit=limit, failed_only=failed_only, status=status, stage=stage, contains=contains))
+    payload = store.query_runs(limit=limit, failed_only=failed_only, status=status, stage=stage, contains=contains)
+    if output_format == "table":
+        click.echo(_render_runs_table(payload))
+        return
+    _dump(payload)
 
 
 @main.command("resume-hint")

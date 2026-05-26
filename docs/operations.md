@@ -13,6 +13,7 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state --limit 3
 python3 -m gis_agent_harness.cli list-runs --failed-only
+python3 -m gis_agent_harness.cli list-runs --format table
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
@@ -34,6 +35,7 @@ python3 scripts/clean_local_state.py
 - `.runs/failed/`: copies of blocked or failed scripts
 - `.demo-runs/fixtures/`: default isolated fixture root for `scripts/demo_task.py`
 - `list-runs`: compact run discovery view before filtering or replaying a specific `run_id`
+- `--format table`: terminal-friendly summary for quick scanning
 - `--status`, `--stage`, `--contains`: narrow the run list to the exact recovery candidate you need
 - `resume-hint`: latest failed-run summary with task context and next-step hint
 - `show-failure-files`: latest failed-run log/script paths for direct inspection

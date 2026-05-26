@@ -60,6 +60,7 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state
 python3 -m gis_agent_harness.cli list-runs --failed-only
+python3 -m gis_agent_harness.cli list-runs --format table
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files

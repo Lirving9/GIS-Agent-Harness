@@ -198,3 +198,9 @@ class StateStore:
             "rerun_command": rerun_command,
             "suggested_fix": summary.get("next_step_hint"),
         }
+
+    def latest_failed_task(self) -> dict[str, Any] | None:
+        summary = self.latest_failed_run_summary()
+        if summary is None:
+            return None
+        return dict(summary.get("task") or {})

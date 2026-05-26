@@ -13,6 +13,7 @@
 - `resume-hint`: compact summary of the latest failed run for local recovery
 - `show-failure-files`: latest failed-run log/script locator for local debugging
 - `show-replay`: suggested rerun command built from the latest failed run context
+- `replay-last`: execute a new run from the latest failed task context with optional overrides
 
 ## Flow
 

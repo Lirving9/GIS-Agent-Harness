@@ -192,5 +192,57 @@ def show_replay_command(state_file: Path | None, run_root: Path | None) -> None:
     _dump(payload)
 
 
+@main.command("replay-last")
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+@click.option("--source-crs", default=None, help="Override source CRS when replaying a failed run.")
+@click.option("--max-iterations", default=None, type=int, help="Override max iterations for the replayed run.")
+@click.option("--mock/--live", "use_mock", default=None, help="Use mock or live LiteLLM routing.")
+def replay_last_command(
+    state_file: Path | None,
+    run_root: Path | None,
+    source_crs: str | None,
+    max_iterations: int | None,
+    use_mock: bool | None,
+) -> None:
+    """Replay the latest failed run using its stored task context."""
+    from .agent_loop import AgentLoop, AgentTask
+    from .llm_router import LLMRouter
+    from .state_store import StateStore
+
+    config = HarnessConfig.from_env()
+    if state_file is not None:
+        config.state_file = state_file
+    if run_root is not None:
+        config.run_root = run_root
+    if use_mock is not None:
+        config.use_mock = use_mock
+    if max_iterations is not None:
+        config.max_iterations = max_iterations
+
+    store = StateStore(config.state_file, config.run_root)
+    task_payload = store.latest_failed_task()
+    if task_payload is None:
+        raise click.ClickException("No failed run snapshots are available.")
+
+    task = AgentTask(
+        task_summary=task_payload["task_summary"],
+        vector_path=task_payload["vector_path"],
+        raster_path=task_payload.get("raster_path"),
+        source_crs=source_crs if source_crs is not None else task_payload.get("source_crs"),
+        max_iterations=max_iterations if max_iterations is not None else task_payload.get("max_iterations", config.max_iterations),
+    )
+    router = LLMRouter(
+        primary_model=config.primary_model,
+        fallback_model=config.fallback_model,
+        use_mock=config.use_mock,
+    )
+    loop = AgentLoop(config=config, router=router)
+    result = loop.run(task)
+    _dump(result.to_dict())
+    if result.status != "succeeded":
+        raise click.exceptions.Exit(1)
+
+
 if __name__ == "__main__":
     main()

@@ -60,14 +60,18 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state
 python3 -m gis_agent_harness.cli show-state --format table
+python3 -m gis_agent_harness.cli show-state --format table --output-file reports/state.txt
 python3 -m gis_agent_harness.cli list-runs --failed-only
 python3 -m gis_agent_harness.cli list-runs --format table
+python3 -m gis_agent_harness.cli list-runs --format table --output-file reports/runs.txt
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-failure-files --format table
+python3 -m gis_agent_harness.cli show-failure-files --format table --output-file reports/failure-files.txt
 python3 -m gis_agent_harness.cli show-replay
 python3 -m gis_agent_harness.cli show-replay --format table
+python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
@@ -108,6 +112,10 @@ python3 scripts/clean_local_state.py --include-fixtures
 ```
 
 This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, and stale `.runs/` artifacts. Use `--include-fixtures` if you also want to remove generated `tests/fixtures/`.
+
+## Local Reports
+
+State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
 
 ## Rollback Strategy
 

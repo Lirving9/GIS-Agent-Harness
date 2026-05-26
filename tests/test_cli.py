@@ -134,6 +134,40 @@ def test_show_state_table_command(tmp_path: Path) -> None:
     assert "table summary" in result.output
 
 
+def test_show_state_output_file_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    output_file = tmp_path / "reports" / "state.json"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-out",
+            iteration=1,
+            stage="observe",
+            status="blocked",
+            summary="written",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--output-file",
+            str(output_file),
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert output_file.exists()
+    payload = json.loads(output_file.read_text(encoding="utf-8"))
+    assert payload[0]["run_id"] == "run-out"
+
+
 def test_show_state_failed_only_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"
@@ -346,6 +380,52 @@ def test_list_runs_table_format_command(tmp_path: Path) -> None:
     assert "run_id" in result.output
     assert "run-table" in result.output
     assert "Tabular run" in result.output
+
+
+def test_list_runs_output_file_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    output_file = tmp_path / "reports" / "runs.txt"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-export",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "Export run", "vector_path": "run.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-export",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed",
+            observations=[Observation(code="planning_failed", message="boom")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "list-runs",
+            "--format",
+            "table",
+            "--output-file",
+            str(output_file),
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert output_file.exists()
+    assert "run-export" in output_file.read_text(encoding="utf-8")
 
 
 def test_list_runs_status_stage_contains_filters(tmp_path: Path) -> None:
@@ -608,6 +688,58 @@ def test_show_failure_files_table_command(tmp_path: Path) -> None:
     assert "failed_scripts" in result.output
 
 
+def test_show_failure_files_output_file_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    output_file = tmp_path / "reports" / "failure.txt"
+    log_dir = run_root / "logs" / "run-export-files"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-1.json").write_text("{}", encoding="utf-8")
+    (failed_dir / "run-export-files-iter-1.py").write_text("print('bad')\n", encoding="utf-8")
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-export-files",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "Export files", "vector_path": "vector.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-export-files",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="sandbox_execution_failed", message="boom")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-failure-files",
+            "--format",
+            "table",
+            "--output-file",
+            str(output_file),
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert output_file.exists()
+    assert "run-export-files" in output_file.read_text(encoding="utf-8")
+
+
 def test_show_failure_files_command_with_run_id(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"
@@ -757,6 +889,52 @@ def test_show_replay_table_command(tmp_path: Path) -> None:
     assert "run_id" in result.output
     assert "run-replay-table" in result.output
     assert "Replay table" in result.output
+
+
+def test_show_replay_output_file_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    output_file = tmp_path / "reports" / "replay.txt"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-replay-export",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "Replay export", "vector_path": "vector.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-replay-export",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="fix replay")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-replay",
+            "--format",
+            "table",
+            "--output-file",
+            str(output_file),
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert output_file.exists()
+    assert "run-replay-export" in output_file.read_text(encoding="utf-8")
 
 
 def test_show_replay_command_with_run_id(tmp_path: Path) -> None:

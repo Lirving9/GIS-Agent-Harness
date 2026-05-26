@@ -9,8 +9,19 @@ from .config import HarnessConfig
 from .errors import DataInspectionError
 
 
-def _dump(payload: object) -> None:
-    click.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+def _render_json(payload: object) -> str:
+    return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
+def _emit_text(text: str, output_file: Path | None = None) -> None:
+    if output_file is not None:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(text + ("\n" if not text.endswith("\n") else ""), encoding="utf-8")
+    click.echo(text)
+
+
+def _dump(payload: object, output_file: Path | None = None) -> None:
+    _emit_text(_render_json(payload), output_file=output_file)
 
 
 def _render_runs_table(rows: list[dict[str, object]]) -> str:
@@ -203,6 +214,7 @@ def run_task_command(
 @click.option("--status", default=None, help="Filter JSON output by snapshot status.")
 @click.option("--stage", default=None, help="Filter JSON output by snapshot stage.")
 @click.option("--failed-only", is_flag=True, help="Only include failed snapshots in JSON output.")
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def show_state_command(
@@ -212,6 +224,7 @@ def show_state_command(
     status: str | None,
     stage: str | None,
     failed_only: bool,
+    output_file: Path | None,
     state_file: Path | None,
     run_root: Path | None,
 ) -> None:
@@ -229,13 +242,13 @@ def show_state_command(
     ):
         raise click.ClickException("Filtering options are only supported with --format json or --format table.")
     if output_format == "markdown":
-        click.echo(store.render_markdown())
+        _emit_text(store.render_markdown(), output_file=output_file)
         return
     rows = store.recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only)
     if output_format == "table":
-        click.echo(_render_state_table(rows))
+        _emit_text(_render_state_table(rows), output_file=output_file)
         return
-    click.echo(json.dumps(rows, indent=2, ensure_ascii=False) if rows else store.render_recent(limit=limit))
+    _emit_text(_render_json(rows) if rows else store.render_recent(limit=limit), output_file=output_file)
 
 
 @main.command("list-runs")
@@ -245,6 +258,7 @@ def show_state_command(
 @click.option("--stage", default=None, help="Filter runs by terminal stage, for example stop or complete.")
 @click.option("--contains", default=None, help="Filter by run id or task summary substring.")
 @click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def list_runs_command(
@@ -254,6 +268,7 @@ def list_runs_command(
     stage: str | None,
     contains: str | None,
     output_format: str,
+    output_file: Path | None,
     state_file: Path | None,
     run_root: Path | None,
 ) -> None:
@@ -268,9 +283,9 @@ def list_runs_command(
     store = StateStore(config.state_file, config.run_root)
     payload = store.query_runs(limit=limit, failed_only=failed_only, status=status, stage=stage, contains=contains)
     if output_format == "table":
-        click.echo(_render_runs_table(payload))
+        _emit_text(_render_runs_table(payload), output_file=output_file)
         return
-    _dump(payload)
+    _dump(payload, output_file=output_file)
 
 
 @main.command("resume-hint")
@@ -296,11 +311,13 @@ def resume_hint_command(run_id: str | None, state_file: Path | None, run_root: P
 @main.command("show-failure-files")
 @click.option("--run-id", default=None, help="Show failure files for a specific run id instead of the latest failed run.")
 @click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def show_failure_files_command(
     run_id: str | None,
     output_format: str,
+    output_file: Path | None,
     state_file: Path | None,
     run_root: Path | None,
 ) -> None:
@@ -334,19 +351,21 @@ def show_failure_files_command(
     if payload is None:
         raise click.ClickException("No matching run snapshots are available.")
     if output_format == "table":
-        click.echo(_render_failure_files_table(payload))
+        _emit_text(_render_failure_files_table(payload), output_file=output_file)
         return
-    _dump(payload)
+    _dump(payload, output_file=output_file)
 
 
 @main.command("show-replay")
 @click.option("--run-id", default=None, help="Show the rerun command for a specific run id instead of the latest failed run.")
 @click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 def show_replay_command(
     run_id: str | None,
     output_format: str,
+    output_file: Path | None,
     state_file: Path | None,
     run_root: Path | None,
 ) -> None:
@@ -384,9 +403,9 @@ def show_replay_command(
     if payload is None:
         raise click.ClickException("No matching run snapshots are available.")
     if output_format == "table":
-        click.echo(_render_replay_table(payload))
+        _emit_text(_render_replay_table(payload), output_file=output_file)
         return
-    _dump(payload)
+    _dump(payload, output_file=output_file)
 
 
 @main.command("replay-last")

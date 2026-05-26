@@ -138,9 +138,20 @@ def show_state_command(
 @main.command("list-runs")
 @click.option("--limit", default=20, show_default=True, type=int)
 @click.option("--failed-only", is_flag=True, help="Only include failed runs.")
+@click.option("--status", default=None, help="Filter runs by terminal status, for example failed or succeeded.")
+@click.option("--stage", default=None, help="Filter runs by terminal stage, for example stop or complete.")
+@click.option("--contains", default=None, help="Filter by run id or task summary substring.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def list_runs_command(limit: int, failed_only: bool, state_file: Path | None, run_root: Path | None) -> None:
+def list_runs_command(
+    limit: int,
+    failed_only: bool,
+    status: str | None,
+    stage: str | None,
+    contains: str | None,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
     """List recent runs as compact JSON summaries."""
     from .state_store import StateStore
 
@@ -150,7 +161,7 @@ def list_runs_command(limit: int, failed_only: bool, state_file: Path | None, ru
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
-    _dump(store.list_runs(limit=limit, failed_only=failed_only))
+    _dump(store.query_runs(limit=limit, failed_only=failed_only, status=status, stage=stage, contains=contains))
 
 
 @main.command("resume-hint")

@@ -236,13 +236,20 @@ class StateStore:
         return dict(summary.get("task") or {})
 
     def list_runs(self, *, failed_only: bool = False, limit: int = 20) -> list[dict[str, Any]]:
+        return self.query_runs(limit=limit, failed_only=failed_only)
+
+    def query_runs(
+        self,
+        *,
+        limit: int = 20,
+        failed_only: bool = False,
+        status: str | None = None,
+        stage: str | None = None,
+        contains: str | None = None,
+    ) -> list[dict[str, Any]]:
         rows = self._load_rows()
         if not rows:
             return []
-
-        latest_by_run: dict[str, dict[str, Any]] = {}
-        for row in rows:
-            latest_by_run[row["run_id"]] = row
 
         ordered_run_ids: list[str] = []
         seen: set[str] = set()
@@ -260,6 +267,23 @@ class StateStore:
                 continue
             if failed_only and summary.get("status") != "failed":
                 continue
+            if status is not None and summary.get("status") != status:
+                continue
+            if stage is not None and summary.get("failed_stage") != stage:
+                continue
+            if contains is not None:
+                text = " ".join(
+                    filter(
+                        None,
+                        [
+                            str(summary.get("run_id", "")),
+                            str(summary.get("summary", "")),
+                            str(summary.get("task", {}).get("task_summary", "")),
+                        ],
+                    )
+                ).lower()
+                if contains.lower() not in text:
+                    continue
             payload.append(summary)
             if len(payload) >= limit:
                 break

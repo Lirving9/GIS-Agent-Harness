@@ -11,6 +11,7 @@
 - `agent_loop.py`: minimal ReAct loop with repeated-error detection
 - `state_store.py`: append-only Markdown and JSONL state snapshots
 - `list-runs`: recent run discovery entrypoint for local recovery workflows
+- `list-runs` filters: status, stage, and substring filtering for local run discovery
 - `resume-hint`: compact summary of the latest failed run for local recovery
 - `show-failure-files`: latest failed-run log/script locator for local debugging
 - `show-replay`: suggested rerun command built from the latest failed run context

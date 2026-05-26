@@ -271,6 +271,60 @@ def test_list_runs_failed_only_command(tmp_path: Path) -> None:
     assert payload[0]["run_id"] == "run-15"
 
 
+def test_list_runs_status_stage_contains_filters(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    fixtures = [
+        ("run-17", "succeeded", "complete", "Aligned raster"),
+        ("run-18", "failed", "stop", "Missing CRS recovery"),
+        ("run-19", "failed", "stop", "Invalid geometry retry"),
+    ]
+    for run_id, status, stage, task_summary in fixtures:
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=0,
+                stage="start",
+                status="running",
+                summary="task",
+                artifacts={"task": {"task_summary": task_summary, "vector_path": f"{run_id}.gpkg"}},
+            )
+        )
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=1,
+                stage=stage,
+                status=status,
+                summary=f"{run_id}-{status}",
+                observations=[Observation(code="planning_failed", message="boom")] if status == "failed" else [],
+            )
+        )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "list-runs",
+            "--status",
+            "failed",
+            "--stage",
+            "stop",
+            "--contains",
+            "geometry",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert len(payload) == 1
+    assert payload[0]["run_id"] == "run-19"
+
+
 def test_resume_hint_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

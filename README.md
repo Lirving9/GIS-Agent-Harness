@@ -72,6 +72,7 @@ python3 -m gis_agent_harness.cli show-failure-files --format table --output-file
 python3 -m gis_agent_harness.cli show-replay
 python3 -m gis_agent_harness.cli show-replay --format table
 python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
+python3 -m gis_agent_harness.cli export-report --latest-failed
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm

@@ -25,6 +25,7 @@ python3 -m gis_agent_harness.cli show-failure-files --format table --output-file
 python3 -m gis_agent_harness.cli show-replay
 python3 -m gis_agent_harness.cli show-replay --format table
 python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
+python3 -m gis_agent_harness.cli export-report --latest-failed
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
 python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
@@ -54,6 +55,7 @@ python3 scripts/clean_local_state.py
 - `show-replay`: suggested rerun command for the latest failed run
 - `show-replay --format table`: terminal-friendly replay summary
 - `export-report`: one-shot report bundle with state, summary, failure-file, replay outputs, and an index file
+  `--latest-failed` makes the “latest failed run” path explicit instead of implicit
   If `--output-dir` is omitted, reports are written under `reports/<run_id>-<timestamp>/`
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying

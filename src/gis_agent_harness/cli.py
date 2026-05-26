@@ -500,12 +500,22 @@ def replay_last_command(
 
 @main.command("export-report")
 @click.option("--run-id", default=None, help="Export a report bundle for a specific run id instead of the latest failed run.")
+@click.option("--latest-failed", is_flag=True, help="Explicitly export the latest failed run.")
 @click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory that will receive the report files.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def export_report_command(run_id: str | None, output_dir: Path | None, state_file: Path | None, run_root: Path | None) -> None:
+def export_report_command(
+    run_id: str | None,
+    latest_failed: bool,
+    output_dir: Path | None,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
     """Export a local recovery report bundle for the selected failed run."""
     from .state_store import StateStore
+
+    if run_id is not None and latest_failed:
+        raise click.ClickException("Use either --run-id or --latest-failed, not both.")
 
     config = HarnessConfig.from_env()
     if state_file is not None:
@@ -514,7 +524,10 @@ def export_report_command(run_id: str | None, output_dir: Path | None, state_fil
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
 
-    summary = store.run_summary(run_id) if run_id is not None else store.latest_failed_run_summary()
+    if run_id is not None:
+        summary = store.run_summary(run_id)
+    else:
+        summary = store.latest_failed_run_summary()
     files_payload = None
     replay_payload = None
     if summary is not None:

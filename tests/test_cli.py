@@ -184,6 +184,93 @@ def test_show_state_run_id_filter_command(tmp_path: Path) -> None:
     assert payload[0]["run_id"] == "run-b"
 
 
+def test_list_runs_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    for run_id, status in (("run-12", "succeeded"), ("run-13", "failed")):
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=0,
+                stage="start",
+                status="running",
+                summary="task",
+                artifacts={"task": {"task_summary": run_id, "vector_path": f"{run_id}.gpkg"}},
+            )
+        )
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=1,
+                stage="stop" if status == "failed" else "complete",
+                status=status,
+                summary=f"{run_id}-{status}",
+                observations=[Observation(code="planning_failed", message="boom")] if status == "failed" else [],
+            )
+        )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "list-runs",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload[0]["run_id"] == "run-13"
+    assert payload[1]["run_id"] == "run-12"
+
+
+def test_list_runs_failed_only_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    for run_id, status in (("run-14", "succeeded"), ("run-15", "failed")):
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=0,
+                stage="start",
+                status="running",
+                summary="task",
+                artifacts={"task": {"task_summary": run_id, "vector_path": f"{run_id}.gpkg"}},
+            )
+        )
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=1,
+                stage="stop" if status == "failed" else "complete",
+                status=status,
+                summary=f"{run_id}-{status}",
+                observations=[Observation(code="planning_failed", message="boom")] if status == "failed" else [],
+            )
+        )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "list-runs",
+            "--failed-only",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert len(payload) == 1
+    assert payload[0]["run_id"] == "run-15"
+
+
 def test_resume_hint_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

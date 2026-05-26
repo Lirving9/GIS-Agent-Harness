@@ -135,6 +135,24 @@ def show_state_command(
     click.echo(store.render_recent(limit=limit, run_id=run_id, status=status, stage=stage, failed_only=failed_only))
 
 
+@main.command("list-runs")
+@click.option("--limit", default=20, show_default=True, type=int)
+@click.option("--failed-only", is_flag=True, help="Only include failed runs.")
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+def list_runs_command(limit: int, failed_only: bool, state_file: Path | None, run_root: Path | None) -> None:
+    """List recent runs as compact JSON summaries."""
+    from .state_store import StateStore
+
+    config = HarnessConfig.from_env()
+    if state_file is not None:
+        config.state_file = state_file
+    if run_root is not None:
+        config.run_root = run_root
+    store = StateStore(config.state_file, config.run_root)
+    _dump(store.list_runs(limit=limit, failed_only=failed_only))
+
+
 @main.command("resume-hint")
 @click.option("--run-id", default=None, help="Show the summary for a specific run id instead of the latest failed run.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)

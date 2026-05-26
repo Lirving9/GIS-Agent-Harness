@@ -234,3 +234,33 @@ class StateStore:
         if summary is None:
             return None
         return dict(summary.get("task") or {})
+
+    def list_runs(self, *, failed_only: bool = False, limit: int = 20) -> list[dict[str, Any]]:
+        rows = self._load_rows()
+        if not rows:
+            return []
+
+        latest_by_run: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            latest_by_run[row["run_id"]] = row
+
+        ordered_run_ids: list[str] = []
+        seen: set[str] = set()
+        for row in reversed(rows):
+            run_id = row["run_id"]
+            if run_id in seen:
+                continue
+            seen.add(run_id)
+            ordered_run_ids.append(run_id)
+
+        payload: list[dict[str, Any]] = []
+        for run_id in ordered_run_ids:
+            summary = self.run_summary(run_id)
+            if summary is None:
+                continue
+            if failed_only and summary.get("status") != "failed":
+                continue
+            payload.append(summary)
+            if len(payload) >= limit:
+                break
+        return payload

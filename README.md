@@ -59,6 +59,7 @@ python3 -m gis_agent_harness.cli run-task \
   --vector tests/fixtures/vector/sample_3857.gpkg \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state
+python3 -m gis_agent_harness.cli list-runs --failed-only
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-replay

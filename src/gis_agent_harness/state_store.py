@@ -204,3 +204,33 @@ class StateStore:
         if summary is None:
             return None
         return dict(summary.get("task") or {})
+
+    def run_summary(self, run_id: str) -> dict[str, Any] | None:
+        rows = self._load_rows()
+        run_rows = [row for row in rows if row.get("run_id") == run_id]
+        if not run_rows:
+            return None
+
+        start_row = next((row for row in run_rows if row.get("stage") == "start"), None)
+        terminal_row = next(
+            (row for row in reversed(run_rows) if row.get("status") in {"failed", "succeeded"}),
+            run_rows[-1],
+        )
+        observations = list(terminal_row.get("observations") or [])
+
+        return {
+            "run_id": run_id,
+            "status": terminal_row.get("status"),
+            "summary": terminal_row.get("summary"),
+            "failed_stage": terminal_row.get("stage"),
+            "task": dict(((start_row or {}).get("artifacts") or {}).get("task") or {}),
+            "observations": observations,
+            "artifacts": dict(terminal_row.get("artifacts") or {}),
+            "next_step_hint": observations[0].get("suggested_fix") if observations else None,
+        }
+
+    def task_for_run(self, run_id: str) -> dict[str, Any] | None:
+        summary = self.run_summary(run_id)
+        if summary is None:
+            return None
+        return dict(summary.get("task") or {})

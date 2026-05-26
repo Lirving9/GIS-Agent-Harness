@@ -235,6 +235,51 @@ def test_resume_hint_command(tmp_path: Path) -> None:
     assert payload["next_step_hint"] == "provide source CRS"
 
 
+def test_resume_hint_command_with_run_id(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    for run_id in ("run-7", "run-8"):
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=0,
+                stage="start",
+                status="running",
+                summary="task",
+                artifacts={"task": {"task_summary": run_id, "vector_path": f"{run_id}.gpkg"}},
+            )
+        )
+        store.append(
+            StateSnapshot(
+                run_id=run_id,
+                iteration=1,
+                stage="stop",
+                status="failed",
+                summary=f"{run_id}-failed",
+                observations=[Observation(code="planning_failed", message="boom", suggested_fix="fix it")],
+            )
+        )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "resume-hint",
+            "--run-id",
+            "run-7",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-7"
+    assert payload["task"]["task_summary"] == "run-7"
+
+
 def test_show_failure_files_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"
@@ -291,6 +336,56 @@ def test_show_failure_files_command(tmp_path: Path) -> None:
     assert payload["run_id"] == "run-4"
     assert payload["log_json_files"]
     assert payload["log_py_files"]
+    assert payload["failed_scripts"]
+
+
+def test_show_failure_files_command_with_run_id(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    log_dir = run_root / "logs" / "run-9"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-9.json").write_text("{}", encoding="utf-8")
+    (failed_dir / "run-9-iter-9.py").write_text("print('bad')\n", encoding="utf-8")
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-9",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "nine", "vector_path": "nine.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-9",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="run-9 failed",
+            observations=[Observation(code="sandbox_execution_failed", message="boom")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-failure-files",
+            "--run-id",
+            "run-9",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-9"
     assert payload["failed_scripts"]
 
 
@@ -351,6 +446,50 @@ def test_show_replay_command(tmp_path: Path) -> None:
     assert "Replay me" in payload["rerun_command"]
 
 
+def test_show_replay_command_with_run_id(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-10",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "ten", "vector_path": "ten.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-10",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="ten failed",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="retry")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-replay",
+            "--run-id",
+            "run-10",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-10"
+    assert "ten" in payload["rerun_command"]
+
+
 def test_replay_last_command_with_override(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"
@@ -396,6 +535,60 @@ def test_replay_last_command_with_override(tmp_path: Path, fixture_paths: dict[s
         main,
         [
             "replay-last",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+            "--source-crs",
+            "EPSG:4326",
+            "--mock",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["status"] == "succeeded"
+
+
+def test_replay_last_command_with_run_id(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-11",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Replay specific run",
+                    "vector_path": fixture_paths["missing_crs"],
+                    "raster_path": None,
+                    "source_crs": None,
+                    "max_iterations": 2,
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-11",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="provide source CRS")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "replay-last",
+            "--run-id",
+            "run-11",
             "--state-file",
             str(state_file),
             "--run-root",

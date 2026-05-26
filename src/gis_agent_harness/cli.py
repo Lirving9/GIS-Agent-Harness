@@ -136,9 +136,10 @@ def show_state_command(
 
 
 @main.command("resume-hint")
+@click.option("--run-id", default=None, help="Show the summary for a specific run id instead of the latest failed run.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def resume_hint_command(state_file: Path | None, run_root: Path | None) -> None:
+def resume_hint_command(run_id: str | None, state_file: Path | None, run_root: Path | None) -> None:
     """Show a compact summary of the latest failed run."""
     from .state_store import StateStore
 
@@ -148,16 +149,17 @@ def resume_hint_command(state_file: Path | None, run_root: Path | None) -> None:
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
-    payload = store.latest_failed_run_summary()
+    payload = store.run_summary(run_id) if run_id is not None else store.latest_failed_run_summary()
     if payload is None:
-        raise click.ClickException("No failed run snapshots are available.")
+        raise click.ClickException("No matching run snapshots are available.")
     _dump(payload)
 
 
 @main.command("show-failure-files")
+@click.option("--run-id", default=None, help="Show failure files for a specific run id instead of the latest failed run.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_failure_files_command(state_file: Path | None, run_root: Path | None) -> None:
+def show_failure_files_command(run_id: str | None, state_file: Path | None, run_root: Path | None) -> None:
     """Show log and failed-script paths for the latest failed run."""
     from .state_store import StateStore
 
@@ -167,16 +169,34 @@ def show_failure_files_command(state_file: Path | None, run_root: Path | None) -
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
-    payload = store.latest_failed_run_files()
+    if run_id is not None:
+        summary = store.run_summary(run_id)
+        if summary is None:
+            payload = None
+        else:
+            log_dir = Path(config.run_root) / "logs" / run_id
+            failed_dir = Path(config.run_root) / "failed"
+            payload = {
+                **summary,
+                "log_dir": str(log_dir),
+                "log_json_files": sorted(str(path) for path in log_dir.glob("*.json")) if log_dir.exists() else [],
+                "log_py_files": sorted(str(path) for path in log_dir.glob("*.py")) if log_dir.exists() else [],
+                "failed_scripts": (
+                    sorted(str(path) for path in failed_dir.glob(f"{run_id}-*.py")) if failed_dir.exists() else []
+                ),
+            }
+    else:
+        payload = store.latest_failed_run_files()
     if payload is None:
-        raise click.ClickException("No failed run snapshots are available.")
+        raise click.ClickException("No matching run snapshots are available.")
     _dump(payload)
 
 
 @main.command("show-replay")
+@click.option("--run-id", default=None, help="Show the rerun command for a specific run id instead of the latest failed run.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_replay_command(state_file: Path | None, run_root: Path | None) -> None:
+def show_replay_command(run_id: str | None, state_file: Path | None, run_root: Path | None) -> None:
     """Show a suggested rerun command for the latest failed run."""
     from .state_store import StateStore
 
@@ -186,19 +206,42 @@ def show_replay_command(state_file: Path | None, run_root: Path | None) -> None:
     if run_root is not None:
         config.run_root = run_root
     store = StateStore(config.state_file, config.run_root)
-    payload = store.latest_failed_run_replay()
+    if run_id is not None:
+        summary = store.run_summary(run_id)
+        task = store.task_for_run(run_id)
+        if summary is None or task is None:
+            payload = None
+        else:
+            parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
+            if task.get("task_summary"):
+                parts.extend(["--task-summary", task["task_summary"]])
+            if task.get("vector_path"):
+                parts.extend(["--vector", task["vector_path"]])
+            if task.get("raster_path"):
+                parts.extend(["--raster", task["raster_path"]])
+            if task.get("source_crs"):
+                parts.extend(["--source-crs", task["source_crs"]])
+            payload = {
+                **summary,
+                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+                "suggested_fix": summary.get("next_step_hint"),
+            }
+    else:
+        payload = store.latest_failed_run_replay()
     if payload is None:
-        raise click.ClickException("No failed run snapshots are available.")
+        raise click.ClickException("No matching run snapshots are available.")
     _dump(payload)
 
 
 @main.command("replay-last")
+@click.option("--run-id", default=None, help="Replay a specific run id instead of the latest failed run.")
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 @click.option("--source-crs", default=None, help="Override source CRS when replaying a failed run.")
 @click.option("--max-iterations", default=None, type=int, help="Override max iterations for the replayed run.")
 @click.option("--mock/--live", "use_mock", default=None, help="Use mock or live LiteLLM routing.")
 def replay_last_command(
+    run_id: str | None,
     state_file: Path | None,
     run_root: Path | None,
     source_crs: str | None,
@@ -221,9 +264,9 @@ def replay_last_command(
         config.max_iterations = max_iterations
 
     store = StateStore(config.state_file, config.run_root)
-    task_payload = store.latest_failed_task()
+    task_payload = store.task_for_run(run_id) if run_id is not None else store.latest_failed_task()
     if task_payload is None:
-        raise click.ClickException("No failed run snapshots are available.")
+        raise click.ClickException("No matching run snapshots are available.")
 
     task = AgentTask(
         task_summary=task_payload["task_summary"],

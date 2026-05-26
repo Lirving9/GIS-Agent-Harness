@@ -1152,6 +1152,69 @@ def test_replay_last_command_dry_run(tmp_path: Path, fixture_paths: dict[str, st
     assert "gis_agent_harness.cli" in payload["rerun_command"]
 
 
+def test_export_report_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    report_dir = tmp_path / "reports" / "bundle"
+    log_dir = run_root / "logs" / "run-report"
+    failed_dir = run_root / "failed"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "iter-1.json").write_text("{}", encoding="utf-8")
+    (failed_dir / "run-report-iter-1.py").write_text("print('bad')\n", encoding="utf-8")
+
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-report",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Bundle report",
+                    "vector_path": "vector.gpkg",
+                    "raster_path": "raster.tif",
+                    "source_crs": "EPSG:4326",
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-report",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="fix bundle")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "export-report",
+            "--run-id",
+            "run-report",
+            "--output-dir",
+            str(report_dir),
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-report"
+    assert (report_dir / "summary.json").exists()
+    assert (report_dir / "failure-files.txt").exists()
+    assert (report_dir / "replay.txt").exists()
+
+
 def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

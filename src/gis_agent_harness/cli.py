@@ -123,6 +123,16 @@ def _render_replay_table(payload: dict[str, object]) -> str:
     return "\n".join([render_line(header_row), render_line(separator_row), render_line(row)])
 
 
+def _write_report_bundle(report_dir: Path, entries: dict[str, str]) -> dict[str, str]:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, str] = {}
+    for name, content in entries.items():
+        path = report_dir / name
+        path.write_text(content + ("\n" if not content.endswith("\n") else ""), encoding="utf-8")
+        written[name] = str(path)
+    return written
+
+
 @click.group()
 def main() -> None:
     """GIS Agent Harness CLI."""
@@ -485,6 +495,74 @@ def replay_last_command(
     _dump(result.to_dict())
     if result.status != "succeeded":
         raise click.exceptions.Exit(1)
+
+
+@main.command("export-report")
+@click.option("--run-id", default=None, help="Export a report bundle for a specific run id instead of the latest failed run.")
+@click.option("--output-dir", type=click.Path(path_type=Path), required=True, help="Directory that will receive the report files.")
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+def export_report_command(run_id: str | None, output_dir: Path, state_file: Path | None, run_root: Path | None) -> None:
+    """Export a local recovery report bundle for the selected failed run."""
+    from .state_store import StateStore
+
+    config = HarnessConfig.from_env()
+    if state_file is not None:
+        config.state_file = state_file
+    if run_root is not None:
+        config.run_root = run_root
+    store = StateStore(config.state_file, config.run_root)
+
+    summary = store.run_summary(run_id) if run_id is not None else store.latest_failed_run_summary()
+    files_payload = None
+    replay_payload = None
+    if summary is not None:
+        selected_run_id = summary["run_id"]
+        log_dir = Path(config.run_root) / "logs" / selected_run_id
+        failed_dir = Path(config.run_root) / "failed"
+        files_payload = {
+            **summary,
+            "log_dir": str(log_dir),
+            "log_json_files": sorted(str(path) for path in log_dir.glob("*.json")) if log_dir.exists() else [],
+            "log_py_files": sorted(str(path) for path in log_dir.glob("*.py")) if log_dir.exists() else [],
+            "failed_scripts": sorted(str(path) for path in failed_dir.glob(f"{selected_run_id}-*.py")) if failed_dir.exists() else [],
+        }
+        task = store.task_for_run(selected_run_id)
+        if task is not None:
+            parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
+            if task.get("task_summary"):
+                parts.extend(["--task-summary", task["task_summary"]])
+            if task.get("vector_path"):
+                parts.extend(["--vector", task["vector_path"]])
+            if task.get("raster_path"):
+                parts.extend(["--raster", task["raster_path"]])
+            if task.get("source_crs"):
+                parts.extend(["--source-crs", task["source_crs"]])
+            replay_payload = {
+                **summary,
+                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+                "suggested_fix": summary.get("next_step_hint"),
+            }
+
+    if summary is None or files_payload is None or replay_payload is None:
+        raise click.ClickException("No matching run snapshots are available.")
+
+    entries = {
+        "summary.json": _render_json(summary),
+        "summary.txt": _render_replay_table({**summary, "suggested_fix": summary.get("next_step_hint")}),
+        "failure-files.json": _render_json(files_payload),
+        "failure-files.txt": _render_failure_files_table(files_payload),
+        "replay.json": _render_json(replay_payload),
+        "replay.txt": _render_replay_table(replay_payload),
+    }
+    written = _write_report_bundle(output_dir, entries)
+    _dump(
+        {
+            "run_id": summary["run_id"],
+            "output_dir": str(output_dir),
+            "files": written,
+        }
+    )
 
 
 if __name__ == "__main__":

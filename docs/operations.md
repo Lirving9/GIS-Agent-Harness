@@ -53,7 +53,7 @@ python3 scripts/clean_local_state.py
 - `show-failure-files --format table`: terminal-friendly failed artifact summary
 - `show-replay`: suggested rerun command for the latest failed run
 - `show-replay --format table`: terminal-friendly replay summary
-- `export-report`: one-shot report bundle with summary, failure-file, and replay outputs
+- `export-report`: one-shot report bundle with summary, failure-file, replay outputs, and an index file
   If `--output-dir` is omitted, reports are written under `reports/<run_id>-<timestamp>/`
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying

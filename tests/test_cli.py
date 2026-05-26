@@ -1213,6 +1213,8 @@ def test_export_report_command(tmp_path: Path) -> None:
     assert (report_dir / "summary.json").exists()
     assert (report_dir / "failure-files.txt").exists()
     assert (report_dir / "replay.txt").exists()
+    assert (report_dir / "index.json").exists()
+    assert (report_dir / "index.txt").exists()
 
 
 def test_export_report_command_uses_default_directory(tmp_path: Path) -> None:

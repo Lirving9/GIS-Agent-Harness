@@ -118,7 +118,7 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 ## Local Reports
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
-For a bundled snapshot, use `export-report` to write multiple report files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`.
+For a bundled snapshot, use `export-report` to write multiple report files plus `index.json` and `index.txt` in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`.
 
 ## Rollback Strategy
 

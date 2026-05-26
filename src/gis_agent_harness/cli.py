@@ -561,6 +561,30 @@ def export_report_command(run_id: str | None, output_dir: Path | None, state_fil
         "replay.txt": _render_replay_table(replay_payload),
     }
     written = _write_report_bundle(output_dir, entries)
+    index_payload = {
+        "run_id": summary["run_id"],
+        "summary": summary["summary"],
+        "suggested_fix": summary.get("next_step_hint"),
+        "files": written,
+    }
+    index_text = "\n".join(
+        [
+            f"run_id: {summary['run_id']}",
+            f"summary: {summary['summary']}",
+            f"suggested_fix: {summary.get('next_step_hint') or ''}",
+            "files:",
+            *[f"- {name}: {path}" for name, path in written.items()],
+        ]
+    )
+    written.update(
+        _write_report_bundle(
+            output_dir,
+            {
+                "index.json": _render_json(index_payload),
+                "index.txt": index_text,
+            },
+        )
+    )
     _dump(
         {
             "run_id": summary["run_id"],

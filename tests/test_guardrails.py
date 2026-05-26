@@ -25,6 +25,7 @@ def test_preflight_detects_missing_crs(fixture_paths: dict[str, str]) -> None:
     missing = [item for item in observations if item.code == "missing_crs"]
     assert missing
     assert "set_crs" in (missing[0].suggested_fix or "")
+    assert "to_crs" not in (missing[0].suggested_fix or "")
 
 
 def test_sandbox_timeout(tmp_path: Path) -> None:

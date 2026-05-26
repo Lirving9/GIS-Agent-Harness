@@ -18,6 +18,7 @@ python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-replay
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326
+python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
 pytest -q
 python3 scripts/demo_task.py
 python3 scripts/demo_failures.py
@@ -37,6 +38,7 @@ python3 scripts/clean_local_state.py
 - `show-replay`: suggested rerun command for the latest failed run
 - `replay-last`: execute a fresh run based on the latest failed task context
 - `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying
+- `--dry-run`: preview the reconstructed replay task and command without executing it
 
 ## Failure Triage
 

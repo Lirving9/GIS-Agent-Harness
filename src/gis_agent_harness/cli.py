@@ -258,6 +258,7 @@ def show_replay_command(run_id: str | None, state_file: Path | None, run_root: P
 @click.option("--source-crs", default=None, help="Override source CRS when replaying a failed run.")
 @click.option("--max-iterations", default=None, type=int, help="Override max iterations for the replayed run.")
 @click.option("--mock/--live", "use_mock", default=None, help="Use mock or live LiteLLM routing.")
+@click.option("--dry-run", is_flag=True, help="Print the reconstructed replay task without executing it.")
 def replay_last_command(
     run_id: str | None,
     state_file: Path | None,
@@ -265,6 +266,7 @@ def replay_last_command(
     source_crs: str | None,
     max_iterations: int | None,
     use_mock: bool | None,
+    dry_run: bool,
 ) -> None:
     """Replay the latest failed run using its stored task context."""
     from .agent_loop import AgentLoop, AgentTask
@@ -293,6 +295,25 @@ def replay_last_command(
         source_crs=source_crs if source_crs is not None else task_payload.get("source_crs"),
         max_iterations=max_iterations if max_iterations is not None else task_payload.get("max_iterations", config.max_iterations),
     )
+    if dry_run:
+        parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
+        if task.task_summary:
+            parts.extend(["--task-summary", task.task_summary])
+        if task.vector_path:
+            parts.extend(["--vector", task.vector_path])
+        if task.raster_path:
+            parts.extend(["--raster", task.raster_path])
+        if task.source_crs:
+            parts.extend(["--source-crs", task.source_crs])
+        _dump(
+            {
+                "mode": "dry-run",
+                "run_id": run_id,
+                "task": task.to_dict(),
+                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+            }
+        )
+        return
     router = LLMRouter(
         primary_model=config.primary_model,
         fallback_model=config.fallback_model,

@@ -14,6 +14,7 @@
 - Use `python3 -m gis_agent_harness.cli show-replay` to reconstruct a recommended local rerun command.
 - Use `python3 -m gis_agent_harness.cli replay-last --source-crs ...` when a failed run only needs a small input override.
 - Prefer `--run-id` on recovery commands when multiple failed runs exist in local state.
+- Prefer `--dry-run` on `replay-last` before executing a replay against non-trivial local data.
 - Keep CLI help fast: avoid importing GeoPandas, Fiona, or Rasterio in module scope for `cli.py`.
 - Do not add external services, databases, or web servers to the MVP path.
 - Preserve append-only state logging in `AGENT_STATE.md` and `.runs/state.jsonl`.

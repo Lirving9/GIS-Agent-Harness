@@ -67,6 +67,7 @@ python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-failure-files --format table
 python3 -m gis_agent_harness.cli show-replay
+python3 -m gis_agent_harness.cli show-replay --format table
 python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run

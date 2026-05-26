@@ -92,6 +92,26 @@ def _render_failure_files_table(payload: dict[str, object]) -> str:
     return "\n".join([render_line(header_row), render_line(separator_row), render_line(row)])
 
 
+def _render_replay_table(payload: dict[str, object]) -> str:
+    headers = ["run_id", "status", "stage", "task_summary", "suggested_fix"]
+    row = {
+        "run_id": str(payload.get("run_id", "")),
+        "status": str(payload.get("status", "")),
+        "stage": str(payload.get("failed_stage", "")),
+        "task_summary": str((payload.get("task") or {}).get("task_summary", "")),
+        "suggested_fix": str(payload.get("suggested_fix", "")),
+    }
+
+    widths = {header: max(len(header), len(row[header])) for header in headers}
+
+    def render_line(values: dict[str, str]) -> str:
+        return "  ".join(values[header].ljust(widths[header]) for header in headers)
+
+    header_row = {header: header for header in headers}
+    separator_row = {header: "-" * widths[header] for header in headers}
+    return "\n".join([render_line(header_row), render_line(separator_row), render_line(row)])
+
+
 @click.group()
 def main() -> None:
     """GIS Agent Harness CLI."""
@@ -321,9 +341,15 @@ def show_failure_files_command(
 
 @main.command("show-replay")
 @click.option("--run-id", default=None, help="Show the rerun command for a specific run id instead of the latest failed run.")
+@click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
-def show_replay_command(run_id: str | None, state_file: Path | None, run_root: Path | None) -> None:
+def show_replay_command(
+    run_id: str | None,
+    output_format: str,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
     """Show a suggested rerun command for the latest failed run."""
     from .state_store import StateStore
 
@@ -357,6 +383,9 @@ def show_replay_command(run_id: str | None, state_file: Path | None, run_root: P
         payload = store.latest_failed_run_replay()
     if payload is None:
         raise click.ClickException("No matching run snapshots are available.")
+    if output_format == "table":
+        click.echo(_render_replay_table(payload))
+        return
     _dump(payload)
 
 

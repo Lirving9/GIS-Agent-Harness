@@ -715,6 +715,50 @@ def test_show_replay_command(tmp_path: Path) -> None:
     assert "Replay me" in payload["rerun_command"]
 
 
+def test_show_replay_table_command(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-replay-table",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={"task": {"task_summary": "Replay table", "vector_path": "vector.gpkg"}},
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-replay-table",
+            iteration=1,
+            stage="stop",
+            status="failed",
+            summary="failed summary",
+            observations=[Observation(code="planning_failed", message="boom", suggested_fix="fix source CRS")],
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-replay",
+            "--format",
+            "table",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "run_id" in result.output
+    assert "run-replay-table" in result.output
+    assert "Replay table" in result.output
+
+
 def test_show_replay_command_with_run_id(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"

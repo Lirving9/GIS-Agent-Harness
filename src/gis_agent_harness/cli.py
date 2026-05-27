@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import click
 
 from .config import HarnessConfig
 from .errors import DataInspectionError
+from .goal_runner import GoalRunner, GoalSpec, run_agent_task
 
 
 def _render_json(payload: object) -> str:
@@ -137,6 +139,32 @@ def _render_index_text(payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def _render_templates_table(rows: list[dict[str, object]]) -> str:
+    headers = ["template_id", "title", "fields"]
+    normalized = [
+        {
+            "template_id": str(row.get("template_id", "")),
+            "title": str(row.get("title", "")),
+            "fields": ",".join(str(field.get("name")) for field in row.get("fields", [])),
+        }
+        for row in rows
+    ]
+    widths = {header: len(header) for header in headers}
+    for row in normalized:
+        for header in headers:
+            widths[header] = max(widths[header], len(row[header]))
+
+    def render_line(values: dict[str, str]) -> str:
+        return "  ".join(values[header].ljust(widths[header]) for header in headers)
+
+    lines = [
+        render_line({header: header for header in headers}),
+        render_line({header: "-" * widths[header] for header in headers}),
+    ]
+    lines.extend(render_line(row) for row in normalized)
+    return "\n".join(lines)
+
+
 def _resolve_latest_report_dir(reports_root: Path) -> Path | None:
     if not reports_root.exists():
         return None
@@ -158,6 +186,42 @@ def _write_report_bundle(report_dir: Path, entries: dict[str, str]) -> dict[str,
         path.write_text(content + ("\n" if not content.endswith("\n") else ""), encoding="utf-8")
         written[name] = str(path)
     return written
+
+
+def _load_runtime_config(
+    *,
+    state_file: Path | None = None,
+    run_root: Path | None = None,
+    use_mock: bool | None = None,
+    max_iterations: int | None = None,
+) -> HarnessConfig:
+    config = HarnessConfig.from_env()
+    if state_file is not None:
+        config.state_file = state_file
+    if run_root is not None:
+        config.run_root = run_root
+        config.sandbox_write_root = run_root / "artifacts"
+        config.telemetry_file = run_root / "telemetry.jsonl"
+    if use_mock is not None:
+        config.use_mock = use_mock
+        if use_mock:
+            config.provider = "mock"
+    if max_iterations is not None:
+        config.max_iterations = max_iterations
+    return config
+
+
+def _render_rerun_command(task_payload: dict[str, Any]) -> str:
+    command_parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
+    if task_payload.get("task_summary"):
+        command_parts.extend(["--task-summary", task_payload["task_summary"]])
+    if task_payload.get("vector_path"):
+        command_parts.extend(["--vector", task_payload["vector_path"]])
+    if task_payload.get("raster_path"):
+        command_parts.extend(["--raster", task_payload["raster_path"]])
+    if task_payload.get("source_crs"):
+        command_parts.extend(["--source-crs", task_payload["source_crs"]])
+    return " ".join(json.dumps(part, ensure_ascii=False) for part in command_parts)
 
 
 @click.group()
@@ -212,28 +276,14 @@ def run_task_command(
     state_file: Path | None,
 ) -> None:
     """Run the guarded mock-first repair loop."""
-    from .agent_loop import AgentLoop, AgentTask
-    from .llm_router import LLMRouter
+    from .agent_loop import AgentTask
 
-    config = HarnessConfig.from_env()
-    if use_mock is not None:
-        config.use_mock = use_mock
-    if max_iterations is not None:
-        config.max_iterations = max_iterations
-    if run_root is not None:
-        config.run_root = run_root
-    if state_file is not None:
-        config.state_file = state_file
-
-    router = LLMRouter(
-        primary_model=config.primary_model,
-        fallback_model=config.fallback_model,
-        api_base=config.api_base,
-        api_key=config.api_key,
-        reasoning_effort=config.reasoning_effort,
-        use_mock=config.use_mock,
+    config = _load_runtime_config(
+        state_file=state_file,
+        run_root=run_root,
+        use_mock=use_mock,
+        max_iterations=max_iterations,
     )
-    loop = AgentLoop(config=config, router=router)
     task = AgentTask(
         task_summary=task_summary,
         vector_path=str(vector_path),
@@ -241,10 +291,122 @@ def run_task_command(
         source_crs=source_crs,
         max_iterations=config.max_iterations,
     )
-    result = loop.run(task)
+    result = run_agent_task(task, config)
     _dump(result.to_dict())
     if result.status != "succeeded":
         raise click.exceptions.Exit(1)
+
+
+@main.group("templates")
+def templates_group() -> None:
+    """Template registry helpers."""
+
+
+@templates_group.command("list")
+@click.option("--format", "output_format", type=click.Choice(["json", "table"]), default="json", show_default=True)
+def templates_list_command(output_format: str) -> None:
+    """List built-in GIS goal templates."""
+    from .task_templates import TemplateRegistry
+
+    templates = [template.to_dict() for template in TemplateRegistry().list()]
+    if output_format == "table":
+        _emit_text(_render_templates_table(templates))
+        return
+    _dump(templates)
+
+
+@main.group("goal")
+def goal_group() -> None:
+    """Goal-oriented wrappers around AgentTask."""
+
+
+@goal_group.command("run")
+@click.option("--template", "template_id", required=True, help="Built-in goal template id.")
+@click.option("--vector", type=click.Path(path_type=Path), default=None)
+@click.option("--raster", type=click.Path(path_type=Path), default=None)
+@click.option("--source-crs", default=None)
+@click.option("--task-summary", default=None, help="Optional override for the rendered task summary.")
+@click.option("--max-iterations", default=None, type=int)
+@click.option("--mock/--live", "use_mock", default=None)
+@click.option("--dry-run", is_flag=True, help="Render the template into an AgentTask without executing it.")
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+def goal_run_command(
+    template_id: str,
+    vector: Path | None,
+    raster: Path | None,
+    source_crs: str | None,
+    task_summary: str | None,
+    max_iterations: int | None,
+    use_mock: bool | None,
+    dry_run: bool,
+    run_root: Path | None,
+    state_file: Path | None,
+) -> None:
+    """Render a template into AgentTask and run the existing agent loop."""
+    config = _load_runtime_config(
+        state_file=state_file,
+        run_root=run_root,
+        use_mock=use_mock,
+        max_iterations=max_iterations,
+    )
+    inputs = {
+        "vector": str(vector) if vector else None,
+        "raster": str(raster) if raster else None,
+        "source_crs": source_crs,
+    }
+    spec = GoalSpec(
+        template_id=template_id,
+        inputs={key: value for key, value in inputs.items() if value is not None},
+        task_summary=task_summary,
+        max_iterations=max_iterations,
+        use_mock=use_mock,
+        run_root=run_root,
+        state_file=state_file,
+    )
+    runner = GoalRunner(config)
+    try:
+        preview = runner.preview(spec)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except KeyError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if dry_run:
+        _dump(preview)
+        return
+    result = runner.run(spec)
+    _dump(result.to_dict())
+    if result.status != "succeeded":
+        raise click.exceptions.Exit(1)
+
+
+@main.group("config")
+def config_group() -> None:
+    """Configuration helpers."""
+
+
+@config_group.command("doctor")
+@click.option("--mock/--live", "use_mock", default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+def config_doctor_command(use_mock: bool | None, run_root: Path | None, state_file: Path | None) -> None:
+    """Inspect merged config and provider profile readiness."""
+    from .auth_config import doctor_config
+
+    config = _load_runtime_config(state_file=state_file, run_root=run_root, use_mock=use_mock)
+    _dump(doctor_config(config))
+
+
+@main.command("tui")
+@click.option("--mock/--live", "use_mock", default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+def tui_command(use_mock: bool | None, run_root: Path | None, state_file: Path | None) -> None:
+    """Launch the Textual TUI."""
+    from .tui import GISAgentApp
+
+    config = _load_runtime_config(state_file=state_file, run_root=run_root, use_mock=use_mock)
+    GISAgentApp(config=config).run()
 
 
 @main.command("show-state")
@@ -271,11 +433,7 @@ def show_state_command(
     """Show recent state snapshots."""
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
     if output_format == "markdown" and any(value is not None for value in (run_id, status, stage)) or (
         output_format == "markdown" and failed_only
@@ -315,11 +473,7 @@ def list_runs_command(
     """List recent runs as compact JSON summaries."""
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
     payload = store.query_runs(limit=limit, failed_only=failed_only, status=status, stage=stage, contains=contains)
     if output_format == "table":
@@ -336,11 +490,7 @@ def resume_hint_command(run_id: str | None, state_file: Path | None, run_root: P
     """Show a compact summary of the latest failed run."""
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
     payload = store.run_summary(run_id) if run_id is not None else store.latest_failed_run_summary()
     if payload is None:
@@ -364,11 +514,7 @@ def show_failure_files_command(
     """Show log and failed-script paths for the latest failed run."""
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
     if run_id is not None:
         summary = store.run_summary(run_id)
@@ -412,11 +558,7 @@ def show_replay_command(
     """Show a suggested rerun command for the latest failed run."""
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
     if run_id is not None:
         summary = store.run_summary(run_id)
@@ -424,18 +566,9 @@ def show_replay_command(
         if summary is None or task is None:
             payload = None
         else:
-            parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
-            if task.get("task_summary"):
-                parts.extend(["--task-summary", task["task_summary"]])
-            if task.get("vector_path"):
-                parts.extend(["--vector", task["vector_path"]])
-            if task.get("raster_path"):
-                parts.extend(["--raster", task["raster_path"]])
-            if task.get("source_crs"):
-                parts.extend(["--source-crs", task["source_crs"]])
             payload = {
                 **summary,
-                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+                "rerun_command": _render_rerun_command(task),
                 "suggested_fix": summary.get("next_step_hint"),
             }
     else:
@@ -480,7 +613,6 @@ def show_report_command(
     if not resolved_dir.exists() or not resolved_dir.is_dir():
         raise click.ClickException("Report directory does not exist.")
 
-    suffix = "json" if output_format == "json" else "txt"
     filenames = {
         "index": {"json": "index.json", "text": "index.txt"},
         "summary": {"json": "summary.json", "text": "summary.txt"},
@@ -514,19 +646,15 @@ def replay_last_command(
     confirm: bool,
 ) -> None:
     """Replay the latest failed run using its stored task context."""
-    from .agent_loop import AgentLoop, AgentTask
-    from .llm_router import LLMRouter
+    from .agent_loop import AgentTask
     from .state_store import StateStore
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
-    if use_mock is not None:
-        config.use_mock = use_mock
-    if max_iterations is not None:
-        config.max_iterations = max_iterations
+    config = _load_runtime_config(
+        state_file=state_file,
+        run_root=run_root,
+        use_mock=use_mock,
+        max_iterations=max_iterations,
+    )
 
     store = StateStore(config.state_file, config.run_root)
     task_payload = store.task_for_run(run_id) if run_id is not None else store.latest_failed_task()
@@ -539,38 +667,22 @@ def replay_last_command(
         raster_path=task_payload.get("raster_path"),
         source_crs=source_crs if source_crs is not None else task_payload.get("source_crs"),
         max_iterations=max_iterations if max_iterations is not None else task_payload.get("max_iterations", config.max_iterations),
+        template_id=task_payload.get("template_id"),
+        template_title=task_payload.get("template_title"),
     )
     if dry_run:
-        parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
-        if task.task_summary:
-            parts.extend(["--task-summary", task.task_summary])
-        if task.vector_path:
-            parts.extend(["--vector", task.vector_path])
-        if task.raster_path:
-            parts.extend(["--raster", task.raster_path])
-        if task.source_crs:
-            parts.extend(["--source-crs", task.source_crs])
         _dump(
             {
                 "mode": "dry-run",
                 "run_id": run_id,
                 "task": task.to_dict(),
-                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+                "rerun_command": _render_rerun_command(task.to_dict()),
             }
         )
         return
     if not confirm:
         raise click.ClickException("Replay execution requires --confirm. Use --dry-run to inspect the task first.")
-    router = LLMRouter(
-        primary_model=config.primary_model,
-        fallback_model=config.fallback_model,
-        api_base=config.api_base,
-        api_key=config.api_key,
-        reasoning_effort=config.reasoning_effort,
-        use_mock=config.use_mock,
-    )
-    loop = AgentLoop(config=config, router=router)
-    result = loop.run(task)
+    result = run_agent_task(task, config)
     _dump(result.to_dict())
     if result.status != "succeeded":
         raise click.exceptions.Exit(1)
@@ -627,11 +739,7 @@ def export_report_command(
         selected_sections = set(selected_sections)
         selected_sections.add("index")
 
-    config = HarnessConfig.from_env()
-    if state_file is not None:
-        config.state_file = state_file
-    if run_root is not None:
-        config.run_root = run_root
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
     store = StateStore(config.state_file, config.run_root)
 
     if run_id is not None:
@@ -653,29 +761,20 @@ def export_report_command(
         }
         task = store.task_for_run(selected_run_id)
         if task is not None:
-            parts = ["python3", "-m", "gis_agent_harness.cli", "run-task"]
-            if task.get("task_summary"):
-                parts.extend(["--task-summary", task["task_summary"]])
-            if task.get("vector_path"):
-                parts.extend(["--vector", task["vector_path"]])
-            if task.get("raster_path"):
-                parts.extend(["--raster", task["raster_path"]])
-            if task.get("source_crs"):
-                parts.extend(["--source-crs", task["source_crs"]])
             replay_payload = {
                 **summary,
-                "rerun_command": " ".join(json.dumps(part, ensure_ascii=False) for part in parts),
+                "rerun_command": _render_rerun_command(task),
                 "suggested_fix": summary.get("next_step_hint"),
             }
 
     if summary is None or files_payload is None or replay_payload is None:
         raise click.ClickException("No matching run snapshots are available.")
 
-    run_rows = store.rows_for_run(selected_run_id)
+    run_rows = store.rows_for_run(summary["run_id"])
 
     if output_dir is None:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        output_dir = Path("reports") / f"{selected_run_id}-{timestamp}"
+        output_dir = Path("reports") / f"{summary['run_id']}-{timestamp}"
 
     entries: dict[str, str] = {}
     if selected_sections is None or "summary" in selected_sections:

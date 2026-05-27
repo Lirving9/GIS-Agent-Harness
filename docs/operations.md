@@ -7,35 +7,36 @@ python3 scripts/generate_sample_data.py
 python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python3 -m gis_agent_harness.cli templates list
+python3 -m gis_agent_harness.cli goal run \
+  --template align_vector_to_raster \
+  --vector tests/fixtures/vector/sample_3857.gpkg \
+  --raster tests/fixtures/raster/sample.tif \
+  --mock
+python3 -m gis_agent_harness.cli goal run \
+  --template declare_source_crs \
+  --vector tests/fixtures/vector/missing_crs.shp \
+  --source-crs EPSG:4326 \
+  --dry-run
+python3 -m gis_agent_harness.cli config doctor
+python3 -m gis_agent_harness.cli tui
 python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state --limit 3
 python3 -m gis_agent_harness.cli show-state --format table
-python3 -m gis_agent_harness.cli show-state --format table --output-file reports/state.txt
 python3 -m gis_agent_harness.cli list-runs --failed-only
-python3 -m gis_agent_harness.cli list-runs --format table
-python3 -m gis_agent_harness.cli list-runs --format table --output-file reports/runs.txt
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
-python3 -m gis_agent_harness.cli show-failure-files --format table
-python3 -m gis_agent_harness.cli show-failure-files --format table --output-file reports/failure-files.txt
 python3 -m gis_agent_harness.cli show-replay
-python3 -m gis_agent_harness.cli show-replay --format table
-python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
-python3 -m gis_agent_harness.cli export-report --latest-failed
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --profile quick
 python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
 python3 -m gis_agent_harness.cli show-report --latest
-python3 -m gis_agent_harness.cli show-report --report-dir reports/RUN_ID-TIMESTAMP --section replay
-python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
-python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
+python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 pytest -q
+pytest -q tests/test_tui_smoke.py
 python3 scripts/demo_task.py
 python3 scripts/demo_recovery.py
 python3 scripts/demo_readme_workflow.py
@@ -44,51 +45,46 @@ python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 
-For a third-party OpenAI-compatible endpoint, configure:
+## Provider Profiles
+
+Mock mode stays the default. For live profiles:
 
 ```bash
 export GIS_AGENT_HARNESS_USE_MOCK=false
-export GIS_AGENT_HARNESS_PRIMARY_MODEL=5.4xh
-export GIS_AGENT_HARNESS_FALLBACK_MODEL=5.4xh
+export GIS_AGENT_HARNESS_PROVIDER=litellm
+export GIS_AGENT_HARNESS_PRIMARY_MODEL=gis-openai
+export GIS_AGENT_HARNESS_FALLBACK_MODEL=gis-claude
+export LITELLM_CONFIG_PATH=litellm-config.yaml
+```
+
+For a third-party OpenAI-compatible endpoint:
+
+```bash
+export GIS_AGENT_HARNESS_USE_MOCK=false
+export GIS_AGENT_HARNESS_PROVIDER=openai_compatible
+export GIS_AGENT_HARNESS_PRIMARY_MODEL=gis-thirdparty
 export GIS_AGENT_HARNESS_API_BASE=https://your-provider.example/v1
 export GIS_AGENT_HARNESS_API_KEY=your-key
 ```
 
-If the provider labels this as a reasoning preset rather than a model id, use `GIS_AGENT_HARNESS_PRIMARY_MODEL=gpt-5.4` and `GIS_AGENT_HARNESS_REASONING_EFFORT=xhigh`.
+Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring without making a live request.
 
-## Logs and Recovery
+## Logs And Recovery
 
 - `AGENT_STATE.md`: human-readable append-only log
 - `.runs/state.jsonl`: machine-readable append-only snapshots
+- `.runs/telemetry.jsonl`: local telemetry mirror of snapshots
 - `.runs/logs/<run_id>/`: per-step scripts and sandbox results
 - `.runs/failed/`: copies of blocked or failed scripts
-- `.demo-runs/fixtures/`: default isolated fixture root for `scripts/demo_task.py`
 - `show-state --format table`: terminal-friendly snapshot view
-- `--output-file`: persist a local report for state, run, failure-file, or replay inspection
-- `list-runs`: compact run discovery view before filtering or replaying a specific `run_id`
-- `--format table`: terminal-friendly summary for quick scanning
-- `--status`, `--stage`, `--contains`: narrow the run list to the exact recovery candidate you need
+- `list-runs`: compact run discovery view before replaying
 - `resume-hint`: latest failed-run summary with task context and next-step hint
 - `show-failure-files`: latest failed-run log/script paths for direct inspection
-- `show-failure-files --format table`: terminal-friendly failed artifact summary
 - `show-replay`: suggested rerun command for the latest failed run
-- `show-replay --format table`: terminal-friendly replay summary
 - `export-report`: one-shot report bundle with state, summary, failure-file, replay outputs, and an index file
-  `--latest-failed` makes the “latest failed run” path explicit instead of implicit
-  If `--output-dir` is omitted, reports are written under `reports/<run_id>-<timestamp>/`
-  `--profile quick|full|debug` provides common bundle presets
-  `--only summary,replay` limits the bundle to selected sections
-  `--print-index` echoes the generated index summary to the terminal after export
-- `show-report`: reopen an exported report bundle from `reports/` without manually opening files
-  `--latest` reads the most recent local bundle
-  `--section summary|state|failure-files|replay|index` selects a specific artifact inside the bundle
-- `python3 scripts/demo_recovery.py`: offline recovery smoke that fails a run, inspects it, exports a report, previews replay, and then succeeds with an explicit override
-- `python3 scripts/demo_readme_workflow.py`: offline proof that the documented CLI workflow remains runnable with real local `run_id` substitution
-- `python3 scripts/verify_acceptance.py`: one-shot local acceptance audit that maps the current repo state to the `GIS-harness.md` checklist
-- `replay-last`: execute a fresh run based on the latest failed task context
-- `--run-id RUN_ID`: target a specific recorded run when summarizing, locating files, or replaying
-- `--dry-run`: preview the reconstructed replay task and command without executing it
-- `--confirm`: required before `replay-last` actually executes
+- `show-report`: reopen an exported report bundle from `reports/`
+- `replay-last --dry-run`: preview the reconstructed replay task and command
+- `replay-last --confirm`: required before replay execution
 
 ## Failure Triage
 
@@ -97,6 +93,7 @@ If the provider labels this as a reasoning preset rather than a model id, use `G
 - CRS mismatch: reproject with `to_crs(...)`
 - invalid geometry: repair with `make_valid()`
 - AST block: remove unsafe imports or dangerous calls
+- output-path block: keep generated artifacts under `.runs/artifacts`
 - timeout: inspect `.runs/logs/<run_id>/` and tighten the generated script
 - `python3 scripts/demo_failures.py` exercises both a guardrail-blocked script and a timeout path
 

@@ -72,6 +72,42 @@ def main() -> None:
     inspect_raster = parse_json_output(
         run_cli(["inspect-raster", fixtures["sample_raster"]], cwd=workspace_root, env=env)[1]
     )
+    templates_list = parse_json_output(run_cli(["templates", "list"], cwd=workspace_root, env=env)[1])
+    goal_dry_run = parse_json_output(
+        run_cli(
+            [
+                "goal",
+                "run",
+                "--template",
+                "declare_source_crs",
+                "--vector",
+                fixtures["missing_crs"],
+                "--source-crs",
+                "EPSG:4326",
+                "--dry-run",
+            ],
+            cwd=workspace_root,
+            env=env,
+        )[1]
+    )
+    goal_run = parse_json_output(
+        run_cli(
+            [
+                "goal",
+                "run",
+                "--template",
+                "align_vector_to_raster",
+                "--vector",
+                fixtures["sample_3857"],
+                "--raster",
+                fixtures["sample_raster"],
+                "--mock",
+            ],
+            cwd=workspace_root,
+            env=env,
+        )[1]
+    )
+    config_doctor = parse_json_output(run_cli(["config", "doctor"], cwd=workspace_root, env=env)[1])
 
     failed_run = parse_json_output(
         run_cli(
@@ -188,10 +224,15 @@ def main() -> None:
 
     payload = {
         "help_has_core_commands": all(
-            name in help_stdout for name in ["inspect-vector", "inspect-raster", "run-task", "show-state"]
+            name in help_stdout
+            for name in ["inspect-vector", "inspect-raster", "run-task", "show-state", "templates", "goal", "config", "tui"]
         ),
         "inspect_vector": inspect_vector,
         "inspect_raster": inspect_raster,
+        "templates_list": templates_list,
+        "goal_dry_run": goal_dry_run,
+        "goal_run": goal_run,
+        "config_doctor": config_doctor,
         "failed_run": failed_run,
         "succeeded_run": succeeded_run,
         "show_state_count": len(show_state_json),

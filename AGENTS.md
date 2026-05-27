@@ -3,25 +3,15 @@
 - Install with `python3 -m pip install -r requirements.txt`.
 - Generate local fixtures with `python3 scripts/generate_sample_data.py` if `tests/fixtures/` is missing.
 - Prefer isolated fixture roots for ad hoc runs, for example `python3 scripts/generate_sample_data.py --output-dir .local-fixtures`.
-- Use `python3 scripts/clean_local_state.py` to reset local runtime artifacts before creating a fresh checkpoint.
-- Run the full offline validation suite with `pytest -q`.
-- Use `python3 scripts/demo_task.py` for the smoke test; it must stay offline and default to mock routing.
-- Use `python3 scripts/demo_recovery.py` to verify the failed-run discovery, report export, and replay workflow offline.
-- Use `python3 scripts/demo_readme_workflow.py` when you need proof that the documented local CLI workflow still runs end to end.
-- Use `python3 scripts/verify_acceptance.py` before final delivery when you need a single local JSON audit of the acceptance checklist.
-- Use `python3 scripts/demo_failures.py` to verify guardrail-blocked and timeout failure paths locally.
-- Keep tests and demo runs from mutating the shared `tests/fixtures/` directory.
-- Use `python3 -m gis_agent_harness.cli list-runs --failed-only` to discover candidate run ids before replaying.
-- Use `list-runs --status ... --stage ... --contains ...` when local state contains many runs.
-- Use `python3 -m gis_agent_harness.cli resume-hint` to inspect the latest failed run before retrying manually.
-- Use `python3 -m gis_agent_harness.cli show-failure-files` to jump straight to failed scripts and log JSON files.
-- Use `python3 -m gis_agent_harness.cli show-replay` to reconstruct a recommended local rerun command.
-- Use `python3 -m gis_agent_harness.cli export-report --latest-failed --print-index` when you want a saved recovery bundle plus an immediate terminal summary.
-- Use `python3 -m gis_agent_harness.cli show-report --latest` to reopen the newest saved bundle during local recovery work.
-- Use `python3 -m gis_agent_harness.cli replay-last --source-crs ...` when a failed run only needs a small input override.
-- Prefer `--run-id` on recovery commands when multiple failed runs exist in local state.
-- Prefer `--dry-run` on `replay-last` before executing a replay against non-trivial local data.
-- Require `--confirm` for real replay execution after reviewing the dry-run payload.
+- Run the full offline suite with `pytest -q`.
+- Use `pytest -q tests/test_tui_smoke.py` when you need an explicit headless TUI check.
+- Use `python3 -m gis_agent_harness.cli templates list`, `goal run`, and `config doctor` for the template-driven path.
+- Use `python3 -m gis_agent_harness.cli tui` for the Textual UI; keep it local-only.
+- Use `python3 scripts/demo_task.py`, `python3 scripts/demo_recovery.py`, and `python3 scripts/demo_readme_workflow.py` for offline smoke coverage.
+- Use `python3 scripts/verify_acceptance.py` before final delivery for a single local JSON audit.
+- Use `python3 scripts/demo_failures.py` to verify guardrail-blocked and timeout paths locally.
+- Use `python3 scripts/clean_local_state.py` before creating a fresh checkpoint.
+- Keep tests and demos from mutating the shared `tests/fixtures/` directory.
 - Keep CLI help fast: avoid importing GeoPandas, Fiona, or Rasterio in module scope for `cli.py`.
 - Do not add external services, databases, or web servers to the MVP path.
 - Preserve append-only state logging in `AGENT_STATE.md` and `.runs/state.jsonl`.

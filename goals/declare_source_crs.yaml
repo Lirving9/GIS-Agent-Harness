@@ -1,0 +1,16 @@
+template_id: declare_source_crs
+title: Declare Source CRS
+description: Declare CRS metadata for a vector dataset that is missing a source CRS.
+task_summary_template: Declare the source CRS {source_crs} for the vector dataset at {vector}.
+vector_field: vector
+source_crs_field: source_crs
+default_max_iterations: 3
+fields:
+  - name: vector
+    label: Vector dataset path
+    required: true
+    kind: path
+  - name: source_crs
+    label: Source CRS
+    required: true
+    kind: text

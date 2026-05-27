@@ -20,6 +20,8 @@ class AgentTask:
     raster_path: str | None = None
     source_crs: str | None = None
     max_iterations: int = 3
+    template_id: str | None = None
+    template_title: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -58,8 +60,18 @@ class AgentLoop:
     ) -> None:
         self.config = config
         self.router = router
-        self.sandbox = sandbox or SandboxRunner(config.run_root, timeout_seconds=config.timeout_seconds)
-        self.state_store = state_store or StateStore(config.state_file, config.run_root)
+        self.sandbox = sandbox or SandboxRunner(
+            config.run_root,
+            timeout_seconds=config.timeout_seconds,
+            write_root=config.sandbox_write_root,
+        )
+        if state_store is None:
+            from .telemetry import TelemetryWriter
+
+            hooks = [TelemetryWriter(config.telemetry_file)] if config.telemetry_local_only else []
+            self.state_store = StateStore(config.state_file, config.run_root, hooks=hooks)
+        else:
+            self.state_store = state_store
 
     def run(self, task: AgentTask) -> AgentRunResult:
         run_id = new_run_id("gis")
@@ -223,6 +235,7 @@ class AgentLoop:
                 decision.script,
                 run_id=run_id,
                 step_name=f"iter-{iteration}",
+                expected_output_path=decision.output_vector_path,
             )
             action_status = "succeeded" if sandbox_result.success else "failed"
             self.state_store.append(
@@ -237,6 +250,11 @@ class AgentLoop:
                         "script_path": sandbox_result.script_path,
                         "returncode": sandbox_result.returncode,
                         "timed_out": sandbox_result.timed_out,
+                        "stdout": sandbox_result.stdout,
+                        "stderr": sandbox_result.stderr,
+                        "expected_output_path": sandbox_result.expected_output_path,
+                        "allowed_write_root": sandbox_result.allowed_write_root,
+                        "risk_preview": sandbox_result.risk_preview,
                     },
                 )
             )

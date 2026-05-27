@@ -7,6 +7,7 @@ from typing import Any
 
 from .errors import Observation
 from .logging_utils import ensure_run_dirs, utc_now
+from .state_hooks import StateHook
 
 
 @dataclass(slots=True)
@@ -27,9 +28,16 @@ class StateSnapshot:
 
 
 class StateStore:
-    def __init__(self, state_file: str | Path, run_root: str | Path) -> None:
+    def __init__(
+        self,
+        state_file: str | Path,
+        run_root: str | Path,
+        *,
+        hooks: list[StateHook] | None = None,
+    ) -> None:
         self.state_file = Path(state_file)
         self.run_root = Path(run_root)
+        self.hooks = hooks or []
         ensure_run_dirs(self.run_root)
         self.state_jsonl = self.run_root / "state.jsonl"
         self._ensure_markdown_header()
@@ -65,6 +73,8 @@ class StateStore:
 
         with self.state_file.open("a", encoding="utf-8") as handle:
             handle.writelines(lines)
+        for hook in self.hooks:
+            hook.handle_snapshot(snapshot)
 
     def _load_rows(self) -> list[dict[str, Any]]:
         if not self.state_jsonl.exists():
@@ -90,6 +100,9 @@ class StateStore:
         if failed_only:
             rows = [row for row in rows if row.get("status") == "failed"]
         return rows[-limit:]
+
+    def tail(self, limit: int = 10, *, run_id: str | None = None) -> list[dict[str, Any]]:
+        return self.recent(limit=limit, run_id=run_id)
 
     def rows_for_run(self, run_id: str) -> list[dict[str, Any]]:
         return [row for row in self._load_rows() if row.get("run_id") == run_id]

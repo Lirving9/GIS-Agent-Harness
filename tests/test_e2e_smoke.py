@@ -110,6 +110,10 @@ def test_demo_readme_workflow_script_smoke() -> None:
     assert payload["help_has_core_commands"] is True
     assert payload["inspect_vector"]["driver"] == "GPKG"
     assert payload["inspect_raster"]["crs"] == "EPSG:4326"
+    assert any(item["template_id"] == "align_vector_to_raster" for item in payload["templates_list"])
+    assert payload["goal_dry_run"]["task"]["template_id"] == "declare_source_crs"
+    assert payload["goal_run"]["status"] == "succeeded"
+    assert payload["config_doctor"]["status"] == "ok"
     assert payload["failed_run"]["status"] == "failed"
     assert payload["succeeded_run"]["status"] == "succeeded"
     assert payload["state_report_exists"] is True

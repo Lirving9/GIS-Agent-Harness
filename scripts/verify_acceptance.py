@@ -32,21 +32,38 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/__init__.py",
     "src/gis_agent_harness/cli.py",
     "src/gis_agent_harness/config.py",
+    "src/gis_agent_harness/auth_config.py",
+    "src/gis_agent_harness/goal_runner.py",
+    "src/gis_agent_harness/task_templates.py",
+    "src/gis_agent_harness/llm_adapters.py",
     "src/gis_agent_harness/llm_router.py",
     "src/gis_agent_harness/spatial_tools.py",
     "src/gis_agent_harness/guardrails.py",
     "src/gis_agent_harness/sandbox.py",
     "src/gis_agent_harness/agent_loop.py",
     "src/gis_agent_harness/state_store.py",
+    "src/gis_agent_harness/state_hooks.py",
+    "src/gis_agent_harness/telemetry.py",
+    "src/gis_agent_harness/tui/__init__.py",
+    "src/gis_agent_harness/tui/app.py",
+    "src/gis_agent_harness/tui/screens.py",
+    "src/gis_agent_harness/tui/widgets.py",
     "src/gis_agent_harness/logging_utils.py",
     "src/gis_agent_harness/prompts.py",
     "src/gis_agent_harness/errors.py",
+    "goals/align_vector_to_raster.yaml",
+    "goals/declare_source_crs.yaml",
+    "goals/repair_invalid_geometry.yaml",
     "tests/conftest.py",
     "tests/test_cli.py",
     "tests/test_spatial_tools.py",
     "tests/test_guardrails.py",
     "tests/test_agent_loop.py",
     "tests/test_e2e_smoke.py",
+    "tests/test_templates.py",
+    "tests/test_goal_cli.py",
+    "tests/test_llm_adapters.py",
+    "tests/test_tui_smoke.py",
 ]
 
 
@@ -142,6 +159,14 @@ def main() -> None:
         )
         sandbox_ok = failures_payload["blocked"]["blocked_by_guardrails"] and failures_payload["timed_out"]["timed_out"]
         self_heal_ok = task_payload["status"] == "succeeded" and recovery_payload["recovery_run"]["status"] == "succeeded"
+        goal_templates_ok = {
+            item["template_id"] for item in readme_payload["templates_list"]
+        } >= {"align_vector_to_raster", "declare_source_crs", "repair_invalid_geometry"}
+        goal_run_ok = (
+            readme_payload["goal_dry_run"]["task"]["template_id"] == "declare_source_crs"
+            and readme_payload["goal_run"]["status"] == "succeeded"
+        )
+        config_doctor_ok = readme_payload["config_doctor"]["status"] == "ok"
         state_persistence_ok = all(
             text in recovery_state_text
             for text in ["# Agent State", "Summary:", "Suggested fix:", "stop | failed", "complete | succeeded"]
@@ -161,6 +186,9 @@ def main() -> None:
             "cli_usable": cli_help_ok,
             "vector_probe": vector_probe_ok,
             "raster_probe": raster_probe_ok,
+            "goal_templates": goal_templates_ok,
+            "goal_run": goal_run_ok,
+            "config_doctor": config_doctor_ok,
             "crs_guardrails": crs_guardrails_ok,
             "safe_execution": sandbox_ok,
             "self_heal_loop": self_heal_ok,
@@ -173,6 +201,7 @@ def main() -> None:
             "pytest_q": None if args.skip_pytest else bool(pytest_result["ok"]),
             "demo_task": task_payload["status"] == "succeeded",
             "readme_commands_copyable": readme_commands_ok,
+            "goal_commands_copyable": goal_run_ok,
             "deliverables_present": all(deliverables.values()),
         }
 

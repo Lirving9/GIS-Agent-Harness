@@ -1,0 +1,16 @@
+template_id: align_vector_to_raster
+title: Align Vector To Raster
+description: Reproject a vector dataset so its CRS matches a reference raster.
+task_summary_template: Align the vector dataset at {vector} to the raster CRS from {raster}.
+vector_field: vector
+raster_field: raster
+default_max_iterations: 3
+fields:
+  - name: vector
+    label: Vector dataset path
+    required: true
+    kind: path
+  - name: raster
+    label: Raster dataset path
+    required: true
+    kind: path

@@ -19,6 +19,10 @@ def test_cli_help() -> None:
     assert "run-task" in result.output
     assert "show-state" in result.output
     assert "show-report" in result.output
+    assert "templates" in result.output
+    assert "goal" in result.output
+    assert "config" in result.output
+    assert "tui" in result.output
 
 
 def test_inspect_vector_command(fixture_paths: dict[str, str]) -> None:

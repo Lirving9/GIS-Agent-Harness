@@ -20,6 +20,8 @@ def main() -> None:
     config = HarnessConfig.from_env()
     if "GIS_AGENT_HARNESS_RUN_ROOT" not in os.environ:
         config.run_root = ROOT / ".demo-runs"
+        config.sandbox_write_root = config.run_root / "artifacts"
+        config.telemetry_file = config.run_root / "telemetry.jsonl"
     if "GIS_AGENT_HARNESS_STATE_FILE" not in os.environ:
         config.state_file = ROOT / ".demo-runs" / "AGENT_STATE.md"
     fixture_dir = Path(os.getenv("GIS_AGENT_HARNESS_FIXTURE_DIR", str(config.run_root / "fixtures")))

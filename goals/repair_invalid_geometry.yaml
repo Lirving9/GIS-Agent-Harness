@@ -1,0 +1,11 @@
+template_id: repair_invalid_geometry
+title: Repair Invalid Geometry
+description: Repair invalid vector geometry with make_valid before continuing analysis.
+task_summary_template: Repair invalid geometry for the vector dataset at {vector}.
+vector_field: vector
+default_max_iterations: 3
+fields:
+  - name: vector
+    label: Vector dataset path
+    required: true
+    kind: path

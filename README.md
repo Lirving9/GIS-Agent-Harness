@@ -1,35 +1,35 @@
 # GIS Agent Harness
 
-GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It provides:
+GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It now provides:
 
 - Click CLI commands for vector and raster inspection
-- a mock-first LiteLLM routing layer with fallback support
+- goal templates that compile into the existing `AgentTask` loop
+- a Textual TUI for template-driven runs, monitoring, and recovery
+- a mock-first LiteLLM routing layer with profile-based provider config
 - CRS, geometry, and AST guardrails before execution
-- sandboxed Python execution with timeout, stdout, stderr, and failed-script capture
-- append-only state snapshots for recovery and audit
-
-The project follows the requirements in [GIS-harness.md](GIS-harness.md) and keeps all tests offline by default.
+- sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
+- append-only state snapshots plus local telemetry for recovery and audit
 
 ## Scope
 
 This MVP is intentionally narrow:
 
 - local files only
-- CLI only
+- local CLI and TUI only
 - no web service
 - no database
-- mock routing by default, live LiteLLM optional
+- mock routing by default, live provider profiles optional
 
 ## Python Version
 
-The target baseline is Python 3.11. The package metadata allows `>=3.11,<3.13`, and the current repository was validated on Python 3.12 because that is the available interpreter in this environment.
+The target baseline is Python 3.11. The package metadata allows `>=3.11,<3.13`, and the current repository is validated on Python 3.12 in this environment.
 
 ## Install
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ## Generate Sample Data
@@ -39,16 +39,41 @@ python3 scripts/generate_sample_data.py
 python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 ```
 
-This creates:
+This creates local vector and raster fixtures, including:
 
-- `tests/fixtures/vector/sample.gpkg`
-- `tests/fixtures/vector/sample.shp`
-- `tests/fixtures/vector/sample_3857.gpkg`
-- `tests/fixtures/vector/invalid_geometry.gpkg`
-- `tests/fixtures/vector/missing_crs.shp`
-- `tests/fixtures/raster/sample.tif`
+- `sample.gpkg`
+- `sample_3857.gpkg`
+- `invalid_geometry.gpkg`
+- `missing_crs.shp`
+- `sample.tif`
 
-## CLI
+## TUI And Goal Templates
+
+```bash
+python3 -m gis_agent_harness.cli templates list
+python3 -m gis_agent_harness.cli goal run \
+  --template align_vector_to_raster \
+  --vector tests/fixtures/vector/sample_3857.gpkg \
+  --raster tests/fixtures/raster/sample.tif \
+  --mock
+python3 -m gis_agent_harness.cli goal run \
+  --template declare_source_crs \
+  --vector tests/fixtures/vector/missing_crs.shp \
+  --source-crs EPSG:4326 \
+  --dry-run
+python3 -m gis_agent_harness.cli config doctor
+python3 -m gis_agent_harness.cli tui
+```
+
+Built-in templates:
+
+- `align_vector_to_raster`
+- `declare_source_crs`
+- `repair_invalid_geometry`
+
+`goal run` renders a template into the existing `AgentTask` model, then executes the existing `AgentLoop`. `--dry-run` prints the rendered task and template metadata without executing anything.
+
+## Core CLI
 
 ```bash
 python3 -m gis_agent_harness.cli --help
@@ -60,47 +85,46 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state
 python3 -m gis_agent_harness.cli show-state --format table
-python3 -m gis_agent_harness.cli show-state --format table --output-file reports/state.txt
 python3 -m gis_agent_harness.cli list-runs --failed-only
-python3 -m gis_agent_harness.cli list-runs --format table
-python3 -m gis_agent_harness.cli list-runs --format table --output-file reports/runs.txt
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
-python3 -m gis_agent_harness.cli show-failure-files --format table
-python3 -m gis_agent_harness.cli show-failure-files --format table --output-file reports/failure-files.txt
 python3 -m gis_agent_harness.cli show-replay
-python3 -m gis_agent_harness.cli show-replay --format table
-python3 -m gis_agent_harness.cli show-replay --format table --output-file reports/replay.txt
-python3 -m gis_agent_harness.cli export-report --latest-failed
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --output-dir reports/run-report
-python3 -m gis_agent_harness.cli export-report --run-id RUN_ID --profile quick
 python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
 python3 -m gis_agent_harness.cli show-report --latest
-python3 -m gis_agent_harness.cli show-report --report-dir reports/RUN_ID-TIMESTAMP --section replay
-python3 -m gis_agent_harness.cli replay-last --source-crs EPSG:4326 --confirm
-python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
+python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --confirm
 ```
 
-For a third-party OpenAI-compatible endpoint, set:
+## Provider Profiles
+
+The default path is still offline mock mode. For live routing, use `.env.example`, `litellm-config.yaml`, or explicit environment variables.
 
 ```bash
 GIS_AGENT_HARNESS_USE_MOCK=false
-GIS_AGENT_HARNESS_PRIMARY_MODEL=5.4xh
-GIS_AGENT_HARNESS_FALLBACK_MODEL=5.4xh
+GIS_AGENT_HARNESS_PROVIDER=litellm
+GIS_AGENT_HARNESS_PRIMARY_MODEL=gis-openai
+GIS_AGENT_HARNESS_FALLBACK_MODEL=gis-claude
+LITELLM_CONFIG_PATH=litellm-config.yaml
+```
+
+For a third-party OpenAI-compatible endpoint:
+
+```bash
+GIS_AGENT_HARNESS_USE_MOCK=false
+GIS_AGENT_HARNESS_PROVIDER=openai_compatible
+GIS_AGENT_HARNESS_PRIMARY_MODEL=gis-thirdparty
 GIS_AGENT_HARNESS_API_BASE=https://your-provider.example/v1
 GIS_AGENT_HARNESS_API_KEY=your-key
 ```
 
-If the provider expects OpenAI-style variable names, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, and `OPENAI_API_KEY` are also accepted.
-If your provider exposes a “5.4xh” style preset as `gpt-5.4` plus higher reasoning, set `GIS_AGENT_HARNESS_PRIMARY_MODEL=gpt-5.4` and `GIS_AGENT_HARNESS_REASONING_EFFORT=xhigh`.
+`config doctor` validates the merged runtime config and reports missing provider/profile inputs without making a live network request.
 
 ## Tests
 
 ```bash
 pytest -q
+pytest -q tests/test_tui_smoke.py
 python3 scripts/demo_task.py
 python3 scripts/demo_recovery.py
 python3 scripts/demo_readme_workflow.py
@@ -109,10 +133,13 @@ python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 
-`demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not need to mutate `tests/fixtures/`.
+`demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not mutate `tests/fixtures/`.
+
 `demo_recovery.py` exercises the local recovery workflow end to end: fail a run, inspect it, export a bundle, preview replay, and then recover it with an explicit override.
-`demo_readme_workflow.py` replays the documented CLI workflow with real local `run_id` values so the README command path is covered by an offline smoke test.
-`verify_acceptance.py` runs a local acceptance audit against the checklist in `GIS-harness.md` and produces a JSON evidence bundle.
+
+`demo_readme_workflow.py` replays the documented CLI workflow with real local `run_id` values so the README command path stays copyable.
+
+`verify_acceptance.py` runs a local acceptance audit against the current deliverables, including templates, config doctor, recovery commands, and the headless TUI test file.
 
 ## What `run-task` Does
 
@@ -142,14 +169,8 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 ## Local Reports
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
-For a bundled snapshot, use `export-report` to write state, summary, failure, replay, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export. Use `show-report` to re-open the latest bundle or a specific bundle directory without hunting through files manually.
 
-## Rollback Strategy
-
-- Use one Git commit per major stage.
-- If a stage fails validation, revert only that stage and keep previously passing modules intact.
-- If live LiteLLM integration fails, keep mock routing as the required MVP path.
-- If a feature expands beyond the MVP boundary, downgrade it to documentation instead of blocking the core flow.
+For a bundled snapshot, use `export-report` to write state, summary, failure, replay, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export.
 
 ## Stop Conditions
 
@@ -159,6 +180,6 @@ The repository is considered complete when:
 - `pytest -q` passes offline
 - `python3 scripts/demo_task.py` completes a failure -> repair -> success loop
 - `python3 scripts/demo_recovery.py` completes a failed-run discovery -> export -> replay recovery loop
-- `python3 scripts/demo_readme_workflow.py` proves the documented local CLI workflow is copyable with real dynamic `run_id` substitution
+- `python3 scripts/demo_readme_workflow.py` proves the documented local CLI and goal workflow is copyable
 - `python3 scripts/verify_acceptance.py` reports all acceptance items and stop conditions as satisfied
-- `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` are present
+- `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` stay in sync with the current commands and constraints

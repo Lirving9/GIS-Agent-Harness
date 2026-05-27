@@ -91,6 +91,7 @@ pytest -q
 python3 scripts/demo_task.py
 python3 scripts/demo_recovery.py
 python3 scripts/demo_readme_workflow.py
+python3 scripts/verify_acceptance.py
 python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
@@ -98,6 +99,7 @@ python3 scripts/clean_local_state.py
 `demo_task.py` writes its own runtime fixtures under `.demo-runs/fixtures` by default, so it does not need to mutate `tests/fixtures/`.
 `demo_recovery.py` exercises the local recovery workflow end to end: fail a run, inspect it, export a bundle, preview replay, and then recover it with an explicit override.
 `demo_readme_workflow.py` replays the documented CLI workflow with real local `run_id` values so the README command path is covered by an offline smoke test.
+`verify_acceptance.py` runs a local acceptance audit against the checklist in `GIS-harness.md` and produces a JSON evidence bundle.
 
 ## What `run-task` Does
 
@@ -145,4 +147,5 @@ The repository is considered complete when:
 - `python3 scripts/demo_task.py` completes a failure -> repair -> success loop
 - `python3 scripts/demo_recovery.py` completes a failed-run discovery -> export -> replay recovery loop
 - `python3 scripts/demo_readme_workflow.py` proves the documented local CLI workflow is copyable with real dynamic `run_id` substitution
+- `python3 scripts/verify_acceptance.py` reports all acceptance items and stop conditions as satisfied
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` are present

@@ -124,3 +124,22 @@ def test_demo_readme_workflow_script_smoke() -> None:
     assert "task_summary" in payload["targeted_replay_text"]
     assert payload["replay_dry_run"]["mode"] == "dry-run"
     assert payload["replay_confirm"]["status"] == "succeeded"
+
+
+def test_verify_acceptance_script_smoke() -> None:
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "verify_acceptance.py"), "--skip-pytest"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PYTHONPATH": str(root / "src"), **os.environ},
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert all(payload["deliverables"].values())
+    assert all(payload["acceptance"].values())
+    assert payload["stop_conditions"]["all_acceptance_items"] is True
+    assert payload["stop_conditions"]["readme_commands_copyable"] is True
+    assert payload["stop_conditions"]["deliverables_present"] is True

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from gis_agent_harness.sandbox import SandboxRunner
 
 
 def main() -> None:
-    run_root = ROOT / ".demo-runs" / "failure-demo"
+    run_root = Path(os.getenv("GIS_AGENT_HARNESS_RUN_ROOT", str(ROOT / ".demo-runs" / "failure-demo")))
     runner = SandboxRunner(run_root, timeout_seconds=1)
 
     blocked = runner.run_python(

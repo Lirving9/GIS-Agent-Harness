@@ -49,10 +49,11 @@ def parse_json_output(stdout: str) -> Any:
 
 
 def main() -> None:
-    workspace_root = ROOT / ".demo-runs" / "readme-workflow"
-    run_root = workspace_root / ".runs"
-    state_file = workspace_root / "AGENT_STATE.md"
-    fixture_dir = workspace_root / "fixtures"
+    default_workspace = ROOT / ".demo-runs" / "readme-workflow"
+    run_root = Path(os.getenv("GIS_AGENT_HARNESS_RUN_ROOT", str(default_workspace / ".runs")))
+    state_file = Path(os.getenv("GIS_AGENT_HARNESS_STATE_FILE", str(default_workspace / "AGENT_STATE.md")))
+    workspace_root = state_file.parent
+    fixture_dir = Path(os.getenv("GIS_AGENT_HARNESS_FIXTURE_DIR", str(workspace_root / "fixtures")))
     reports_dir = workspace_root / "reports"
 
     workspace_root.mkdir(parents=True, exist_ok=True)

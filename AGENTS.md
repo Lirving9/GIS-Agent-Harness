@@ -8,6 +8,7 @@
 - Use `python3 scripts/demo_task.py` for the smoke test; it must stay offline and default to mock routing.
 - Use `python3 scripts/demo_recovery.py` to verify the failed-run discovery, report export, and replay workflow offline.
 - Use `python3 scripts/demo_readme_workflow.py` when you need proof that the documented local CLI workflow still runs end to end.
+- Use `python3 scripts/verify_acceptance.py` before final delivery when you need a single local JSON audit of the acceptance checklist.
 - Use `python3 scripts/demo_failures.py` to verify guardrail-blocked and timeout failure paths locally.
 - Keep tests and demo runs from mutating the shared `tests/fixtures/` directory.
 - Use `python3 -m gis_agent_harness.cli list-runs --failed-only` to discover candidate run ids before replaying.

@@ -95,6 +95,7 @@ GIS_AGENT_HARNESS_API_KEY=your-key
 ```
 
 If the provider expects OpenAI-style variable names, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, and `OPENAI_API_KEY` are also accepted.
+If your provider exposes a “5.4xh” style preset as `gpt-5.4` plus higher reasoning, set `GIS_AGENT_HARNESS_PRIMARY_MODEL=gpt-5.4` and `GIS_AGENT_HARNESS_REASONING_EFFORT=xhigh`.
 
 ## Tests
 

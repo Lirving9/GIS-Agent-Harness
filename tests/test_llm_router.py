@@ -17,7 +17,11 @@ def test_litellm_client_forwards_base_url_and_api_key(monkeypatch) -> None:
 
     monkeypatch.setitem(sys.modules, "litellm", types.SimpleNamespace(completion=fake_completion))
 
-    client = LiteLLMClient(api_key="test-key", base_url="https://example.invalid/v1")
+    client = LiteLLMClient(
+        api_key="test-key",
+        base_url="https://example.invalid/v1",
+        reasoning_effort="xhigh",
+    )
     response = client.complete(
         {
             "task_summary": "Test provider forwarding.",
@@ -36,3 +40,4 @@ def test_litellm_client_forwards_base_url_and_api_key(monkeypatch) -> None:
     assert captured["model"] == "5.4xh"
     assert captured["api_key"] == "test-key"
     assert captured["base_url"] == "https://example.invalid/v1"
+    assert captured["reasoning_effort"] == "xhigh"

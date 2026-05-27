@@ -54,6 +54,8 @@ export GIS_AGENT_HARNESS_API_BASE=https://your-provider.example/v1
 export GIS_AGENT_HARNESS_API_KEY=your-key
 ```
 
+If the provider labels this as a reasoning preset rather than a model id, use `GIS_AGENT_HARNESS_PRIMARY_MODEL=gpt-5.4` and `GIS_AGENT_HARNESS_REASONING_EFFORT=xhigh`.
+
 ## Logs and Recovery
 
 - `AGENT_STATE.md`: human-readable append-only log

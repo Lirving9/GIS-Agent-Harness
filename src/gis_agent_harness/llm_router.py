@@ -117,9 +117,16 @@ print(output_path)
 
 
 class LiteLLMClient:
-    def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        reasoning_effort: str | None = None,
+    ) -> None:
         self.api_key = api_key
         self.base_url = base_url
+        self.reasoning_effort = reasoning_effort
 
     def complete(self, payload: dict[str, Any], *, model: str) -> str:
         try:
@@ -139,6 +146,8 @@ class LiteLLMClient:
             request["base_url"] = self.base_url
         if self.api_key:
             request["api_key"] = self.api_key
+        if self.reasoning_effort:
+            request["reasoning_effort"] = self.reasoning_effort
         response = completion(**request)
         return response.choices[0].message.content
 
@@ -151,6 +160,7 @@ class LLMRouter:
         fallback_model: str,
         api_base: str | None = None,
         api_key: str | None = None,
+        reasoning_effort: str | None = None,
         retries: int = 1,
         client: SupportsCompletion | None = None,
         use_mock: bool = True,
@@ -161,7 +171,11 @@ class LLMRouter:
         if client is not None:
             self.client = client
         else:
-            self.client = MockLLMClient() if use_mock else LiteLLMClient(api_key=api_key, base_url=api_base)
+            self.client = (
+                MockLLMClient()
+                if use_mock
+                else LiteLLMClient(api_key=api_key, base_url=api_base, reasoning_effort=reasoning_effort)
+            )
 
     def _parse_response(self, response_text: str) -> dict[str, Any]:
         text = response_text.strip()

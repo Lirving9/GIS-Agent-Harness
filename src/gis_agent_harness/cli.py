@@ -230,6 +230,7 @@ def run_task_command(
         fallback_model=config.fallback_model,
         api_base=config.api_base,
         api_key=config.api_key,
+        reasoning_effort=config.reasoning_effort,
         use_mock=config.use_mock,
     )
     loop = AgentLoop(config=config, router=router)
@@ -565,6 +566,7 @@ def replay_last_command(
         fallback_model=config.fallback_model,
         api_base=config.api_base,
         api_key=config.api_key,
+        reasoning_effort=config.reasoning_effort,
         use_mock=config.use_mock,
     )
     loop = AgentLoop(config=config, router=router)

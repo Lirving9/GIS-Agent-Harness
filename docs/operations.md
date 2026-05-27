@@ -44,6 +44,16 @@ python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
 ```
 
+For a third-party OpenAI-compatible endpoint, configure:
+
+```bash
+export GIS_AGENT_HARNESS_USE_MOCK=false
+export GIS_AGENT_HARNESS_PRIMARY_MODEL=5.4xh
+export GIS_AGENT_HARNESS_FALLBACK_MODEL=5.4xh
+export GIS_AGENT_HARNESS_API_BASE=https://your-provider.example/v1
+export GIS_AGENT_HARNESS_API_KEY=your-key
+```
+
 ## Logs and Recovery
 
 - `AGENT_STATE.md`: human-readable append-only log

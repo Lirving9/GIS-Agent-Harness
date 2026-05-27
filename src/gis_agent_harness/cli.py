@@ -228,6 +228,8 @@ def run_task_command(
     router = LLMRouter(
         primary_model=config.primary_model,
         fallback_model=config.fallback_model,
+        api_base=config.api_base,
+        api_key=config.api_key,
         use_mock=config.use_mock,
     )
     loop = AgentLoop(config=config, router=router)
@@ -561,6 +563,8 @@ def replay_last_command(
     router = LLMRouter(
         primary_model=config.primary_model,
         fallback_model=config.fallback_model,
+        api_base=config.api_base,
+        api_key=config.api_key,
         use_mock=config.use_mock,
     )
     loop = AgentLoop(config=config, router=router)

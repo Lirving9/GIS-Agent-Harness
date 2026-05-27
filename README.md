@@ -84,6 +84,18 @@ python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
 ```
 
+For a third-party OpenAI-compatible endpoint, set:
+
+```bash
+GIS_AGENT_HARNESS_USE_MOCK=false
+GIS_AGENT_HARNESS_PRIMARY_MODEL=5.4xh
+GIS_AGENT_HARNESS_FALLBACK_MODEL=5.4xh
+GIS_AGENT_HARNESS_API_BASE=https://your-provider.example/v1
+GIS_AGENT_HARNESS_API_KEY=your-key
+```
+
+If the provider expects OpenAI-style variable names, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, and `OPENAI_API_KEY` are also accepted.
+
 ## Tests
 
 ```bash

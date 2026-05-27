@@ -117,6 +117,10 @@ print(output_path)
 
 
 class LiteLLMClient:
+    def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
+        self.api_key = api_key
+        self.base_url = base_url
+
     def complete(self, payload: dict[str, Any], *, model: str) -> str:
         try:
             from litellm import completion
@@ -124,13 +128,18 @@ class LiteLLMClient:
             raise RuntimeError("litellm is not installed; use mock routing or install dependencies.") from exc
 
         prompt = build_repair_prompt(payload)
-        response = completion(
-            model=model,
-            messages=[
+        request: dict[str, Any] = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-        )
+        }
+        if self.base_url:
+            request["base_url"] = self.base_url
+        if self.api_key:
+            request["api_key"] = self.api_key
+        response = completion(**request)
         return response.choices[0].message.content
 
 
@@ -140,6 +149,8 @@ class LLMRouter:
         *,
         primary_model: str,
         fallback_model: str,
+        api_base: str | None = None,
+        api_key: str | None = None,
         retries: int = 1,
         client: SupportsCompletion | None = None,
         use_mock: bool = True,
@@ -150,7 +161,7 @@ class LLMRouter:
         if client is not None:
             self.client = client
         else:
-            self.client = MockLLMClient() if use_mock else LiteLLMClient()
+            self.client = MockLLMClient() if use_mock else LiteLLMClient(api_key=api_key, base_url=api_base)
 
     def _parse_response(self, response_text: str) -> dict[str, Any]:
         text = response_text.strip()

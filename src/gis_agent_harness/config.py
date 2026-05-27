@@ -11,6 +11,8 @@ class HarnessConfig:
     state_file: Path = Path("AGENT_STATE.md")
     primary_model: str = "mock-primary"
     fallback_model: str = "mock-fallback"
+    api_base: str | None = None
+    api_key: str | None = None
     use_mock: bool = True
     timeout_seconds: int = 20
     max_iterations: int = 3
@@ -22,6 +24,12 @@ class HarnessConfig:
             state_file=Path(os.getenv("GIS_AGENT_HARNESS_STATE_FILE", "AGENT_STATE.md")),
             primary_model=os.getenv("GIS_AGENT_HARNESS_PRIMARY_MODEL", "mock-primary"),
             fallback_model=os.getenv("GIS_AGENT_HARNESS_FALLBACK_MODEL", "mock-fallback"),
+            api_base=(
+                os.getenv("GIS_AGENT_HARNESS_API_BASE")
+                or os.getenv("OPENAI_BASE_URL")
+                or os.getenv("OPENAI_API_BASE")
+            ),
+            api_key=os.getenv("GIS_AGENT_HARNESS_API_KEY") or os.getenv("OPENAI_API_KEY"),
             use_mock=os.getenv("GIS_AGENT_HARNESS_USE_MOCK", "true").lower() in {"1", "true", "yes"},
             timeout_seconds=int(os.getenv("GIS_AGENT_HARNESS_TIMEOUT_SECONDS", "20")),
             max_iterations=int(os.getenv("GIS_AGENT_HARNESS_MAX_ITERATIONS", "3")),

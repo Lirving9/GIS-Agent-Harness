@@ -1,0 +1,92 @@
+name: Offline CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-matrix:
+    name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Generate isolated fixtures
+        run: python scripts/generate_sample_data.py --output-dir .local-fixtures
+
+      - name: Run offline pytest suite
+        run: pytest -q
+
+      - name: Run explicit TUI smoke
+        run: pytest -q tests/test_tui_smoke.py
+
+  smoke-and-acceptance:
+    name: demos and acceptance
+    runs-on: ubuntu-latest
+    needs: test-matrix
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run offline smoke scripts
+        run: |
+          python scripts/demo_task.py
+          python scripts/demo_recovery.py
+          python scripts/demo_readme_workflow.py
+          python scripts/demo_failures.py
+
+      - name: Run acceptance audit
+        run: python scripts/verify_acceptance.py
+
+  package:
+    name: build package
+    runs-on: ubuntu-latest
+    needs: smoke-and-acceptance
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Build sdist and wheel
+        run: python -m build

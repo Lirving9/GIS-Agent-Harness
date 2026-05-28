@@ -21,6 +21,9 @@ REQUIRED_PATHS = [
     ".env.example",
     "litellm-config.yaml",
     ".codex/config.toml",
+    "Dockerfile",
+    ".dockerignore",
+    ".github/workflows/ci.yml",
     "docs/architecture.md",
     "docs/operations.md",
     "scripts/generate_sample_data.py",
@@ -167,6 +170,7 @@ def main() -> None:
             and readme_payload["goal_run"]["status"] == "succeeded"
         )
         config_doctor_ok = readme_payload["config_doctor"]["status"] == "ok"
+        packaging_ok = all((ROOT / path).exists() for path in ["Dockerfile", ".dockerignore", ".github/workflows/ci.yml"])
         state_persistence_ok = all(
             text in recovery_state_text
             for text in ["# Agent State", "Summary:", "Suggested fix:", "stop | failed", "complete | succeeded"]
@@ -193,6 +197,7 @@ def main() -> None:
             "safe_execution": sandbox_ok,
             "self_heal_loop": self_heal_ok,
             "state_persistence": state_persistence_ok,
+            "packaging_ready": packaging_ok,
             "automated_tests": True if args.skip_pytest else bool(pytest_result["ok"]),
             "documentation_complete": documentation_ok,
         }

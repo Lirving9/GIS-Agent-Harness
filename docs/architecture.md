@@ -6,6 +6,8 @@
 - `tui/app.py`: Textual application shell and worker-driven run orchestration
 - `tui/screens.py`: Home, goal entry, run monitor, recovery, and config screens
 - `tui/widgets.py`: JSON, log, and risk-preview panels used by the TUI
+- `Dockerfile`: local container entrypoint for CLI and smoke-friendly packaging
+- `.github/workflows/ci.yml`: offline CI matrix plus smoke and package jobs
 
 ## Core Runtime
 
@@ -62,5 +64,6 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 - local files only
 - append-only state history
 - mock-first, offline-by-default tests
+- cross-platform CI stays centered on offline commands and local fixtures
 - no web service and no database
 - no GeoPandas, Fiona, or Rasterio imports at `cli.py` module scope

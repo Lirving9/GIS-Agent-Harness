@@ -12,6 +12,15 @@ def test_ast_blocks_dangerous_imports() -> None:
     assert any(item.code == "import_not_allowed" for item in report.observations)
 
 
+def test_sandbox_risk_preview_collects_blocked_calls(tmp_path: Path) -> None:
+    runner = SandboxRunner(tmp_path / ".runs")
+    preview = runner.preview_script_risk("import os\nos.system('echo nope')\n")
+    assert preview.allowed is False
+    assert "os" in preview.blocked_imports
+    assert "os.system" in preview.blocked_calls
+    assert "dangerous_call" in preview.observation_codes
+
+
 def test_preflight_detects_crs_mismatch(fixture_paths: dict[str, str]) -> None:
     observations = preflight_dataset_checks(
         fixture_paths["sample_3857"],

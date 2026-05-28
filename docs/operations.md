@@ -43,6 +43,8 @@ python3 scripts/demo_readme_workflow.py
 python3 scripts/verify_acceptance.py
 python3 scripts/demo_failures.py
 python3 scripts/clean_local_state.py
+docker build -t gis-agent-harness .
+docker run --rm -it -v "$PWD":/workspace gis-agent-harness --help
 ```
 
 ## Provider Profiles
@@ -68,6 +70,8 @@ export GIS_AGENT_HARNESS_API_KEY=your-key
 ```
 
 Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring without making a live request.
+
+`litellm-config.yaml` may use `${ENV_VAR}` or `os.environ/ENV_VAR` placeholders. The local config loader resolves both forms before adapter selection.
 
 ## Logs And Recovery
 
@@ -101,3 +105,9 @@ Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring 
 
 - Run `python3 scripts/clean_local_state.py` to remove local runtime directories and prune `.runs/` artifacts while preserving tracked `.gitkeep` files.
 - Run `python3 scripts/clean_local_state.py --include-fixtures` to also remove generated `tests/fixtures/`.
+
+## CI And Packaging
+
+- GitHub Actions workflow: [`.github/workflows/ci.yml`](/home/spiderli/GIS-Agent-Harness/.github/workflows/ci.yml)
+- Container image entrypoint: [`Dockerfile`](/home/spiderli/GIS-Agent-Harness/Dockerfile)
+- Package build check: `python -m build`

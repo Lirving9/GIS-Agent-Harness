@@ -2,18 +2,18 @@ model_list:
   - model_name: gis-openai
     litellm_params:
       model: openai/gpt-4.1-mini
-      api_key: os.environ/OPENAI_API_KEY
-      api_base: os.environ/OPENAI_BASE_URL
+      api_key: ${OPENAI_API_KEY}
+      api_base: ${OPENAI_BASE_URL}
   - model_name: gis-claude
     litellm_params:
       model: anthropic/claude-sonnet-4-20250514
-      api_key: os.environ/ANTHROPIC_API_KEY
-      api_base: os.environ/ANTHROPIC_API_BASE
+      api_key: ${ANTHROPIC_API_KEY}
+      api_base: ${ANTHROPIC_API_BASE}
   - model_name: gis-thirdparty
     litellm_params:
       model: openai/your-model-name
-      api_key: os.environ/GIS_AGENT_HARNESS_API_KEY
-      api_base: os.environ/GIS_AGENT_HARNESS_API_BASE
+      api_key: ${GIS_AGENT_HARNESS_API_KEY}
+      api_base: ${GIS_AGENT_HARNESS_API_BASE}
       supports_system_message: false
 
 router_settings:

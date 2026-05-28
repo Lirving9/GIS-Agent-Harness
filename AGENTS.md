@@ -10,6 +10,7 @@
 - Use `python3 scripts/demo_task.py`, `python3 scripts/demo_recovery.py`, and `python3 scripts/demo_readme_workflow.py` for offline smoke coverage.
 - Use `python3 scripts/verify_acceptance.py` before final delivery for a single local JSON audit.
 - Use `python3 scripts/demo_failures.py` to verify guardrail-blocked and timeout paths locally.
+- Use `docker build -t gis-agent-harness .` only for local packaging checks; keep runtime behavior local-first.
 - Use `python3 scripts/clean_local_state.py` before creating a fresh checkpoint.
 - Keep tests and demos from mutating the shared `tests/fixtures/` directory.
 - Keep CLI help fast: avoid importing GeoPandas, Fiona, or Rasterio in module scope for `cli.py`.

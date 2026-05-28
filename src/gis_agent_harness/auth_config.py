@@ -20,6 +20,8 @@ def mask_secret(value: str | None) -> str | None:
 def resolve_env_reference(value: Any) -> Any:
     if isinstance(value, str) and value.startswith("os.environ/"):
         return os.getenv(value.split("/", 1)[1])
+    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+        return os.getenv(value[2:-1])
     return value
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from gis_agent_harness.auth_config import resolve_env_reference
 from gis_agent_harness.config import HarnessConfig
 
 
@@ -13,3 +14,8 @@ def test_config_reads_live_api_env(monkeypatch) -> None:
     assert config.api_base == "https://example.invalid/v1"
     assert config.api_key == "secret-key"
     assert config.reasoning_effort == "xhigh"
+
+
+def test_resolve_env_reference_supports_braced_placeholders(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-key")
+    assert resolve_env_reference("${OPENAI_API_KEY}") == "secret-key"

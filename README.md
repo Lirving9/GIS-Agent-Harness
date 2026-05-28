@@ -120,6 +120,8 @@ GIS_AGENT_HARNESS_API_KEY=your-key
 
 `config doctor` validates the merged runtime config and reports missing provider/profile inputs without making a live network request.
 
+`litellm-config.yaml` accepts both `${ENV_VAR}` and `os.environ/ENV_VAR` references so the local examples stay compatible with common LiteLLM YAML styles.
+
 ## Tests
 
 ```bash
@@ -140,6 +142,17 @@ python3 scripts/clean_local_state.py
 `demo_readme_workflow.py` replays the documented CLI workflow with real local `run_id` values so the README command path stays copyable.
 
 `verify_acceptance.py` runs a local acceptance audit against the current deliverables, including templates, config doctor, recovery commands, and the headless TUI test file.
+
+## Container And CI
+
+```bash
+docker build -t gis-agent-harness .
+docker run --rm -it -v "$PWD":/workspace gis-agent-harness --help
+docker run --rm -it -v "$PWD":/workspace gis-agent-harness templates list
+docker run --rm -it -v "$PWD":/workspace gis-agent-harness config doctor
+```
+
+The repository also includes [`.github/workflows/ci.yml`](/home/spiderli/GIS-Agent-Harness/.github/workflows/ci.yml) for cross-platform offline pytest, explicit TUI smoke, demo scripts, package build, and the local acceptance audit.
 
 ## What `run-task` Does
 
@@ -182,4 +195,6 @@ The repository is considered complete when:
 - `python3 scripts/demo_recovery.py` completes a failed-run discovery -> export -> replay recovery loop
 - `python3 scripts/demo_readme_workflow.py` proves the documented local CLI and goal workflow is copyable
 - `python3 scripts/verify_acceptance.py` reports all acceptance items and stop conditions as satisfied
+- `Dockerfile` builds a local CLI image without adding any external service dependency
+- `.github/workflows/ci.yml` keeps the offline suite, smoke scripts, and package build wired into CI
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` stay in sync with the current commands and constraints

@@ -115,12 +115,12 @@ class SandboxRunner:
         blocked_imports = [
             item.details.get("name", item.message)
             for item in report.observations
-            if item.code == "import_not_allowed"
+            if item.code in {"import_not_allowed", "import_not_whitelisted"}
         ]
         blocked_calls = [
             item.details.get("name", item.message)
             for item in report.observations
-            if item.code == "call_not_allowed"
+            if item.code in {"call_not_allowed", "dangerous_call"}
         ]
         return SandboxRiskPreview(
             allowed=report.allowed,

@@ -59,6 +59,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                         code="import_not_allowed",
                         message=f"Import blocked: {alias.name}",
                         suggested_fix="Remove network, OS, and subprocess imports from generated code.",
+                        details={"name": alias.name},
                     )
                 )
             elif root not in SAFE_IMPORT_ROOTS:
@@ -67,6 +68,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                         code="import_not_whitelisted",
                         message=f"Import not in whitelist: {alias.name}",
                         suggested_fix="Restrict generated code to GIS and safe standard-library modules.",
+                        details={"name": alias.name},
                     )
                 )
         self.generic_visit(node)
@@ -82,6 +84,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                     code="import_not_allowed",
                     message=f"Import blocked: {module}",
                     suggested_fix="Remove network, OS, and subprocess imports from generated code.",
+                    details={"name": module},
                 )
             )
         elif root not in SAFE_IMPORT_ROOTS:
@@ -90,6 +93,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                     code="import_not_whitelisted",
                     message=f"Import not in whitelist: {module}",
                     suggested_fix="Restrict generated code to GIS and safe standard-library modules.",
+                    details={"name": module},
                 )
             )
         self.generic_visit(node)
@@ -104,6 +108,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                         code="dangerous_call",
                         message=f"Call blocked: {node.func.id}",
                         suggested_fix="Avoid dynamic execution helpers in generated code.",
+                        details={"name": node.func.id},
                     )
                 )
             if root in DISALLOWED_IMPORT_ROOTS:
@@ -112,6 +117,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                         code="dangerous_call",
                         message=f"Call blocked: {target}",
                         suggested_fix="Use the harness sandbox instead of subprocess or OS shell calls.",
+                        details={"name": target},
                     )
                 )
 
@@ -126,6 +132,7 @@ class ScriptPolicyVisitor(ast.NodeVisitor):
                             code="dangerous_call",
                             message=f"Call blocked: {target}.{node.func.attr}",
                             suggested_fix="Use GeoPandas, Fiona, and Rasterio APIs without shell access.",
+                            details={"name": f"{target}.{node.func.attr}"},
                         )
                     )
         self.generic_visit(node)

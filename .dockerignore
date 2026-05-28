@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.runs
+.demo-runs
+.pytest-smoke
+.local-fixtures
+reports
+step
+*.pyc
+*.pyo
+*.pyd

@@ -11,6 +11,10 @@ python3 -m gis_agent_harness.cli spatial-map tests/fixtures
 python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --dry-run
+python3 -m gis_agent_harness.cli qgis-run native:buffer \
+  --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
+  --execute \
+  --confirm
 python3 -m gis_agent_harness.cli templates list
 python3 -m gis_agent_harness.cli goal run \
   --template align_vector_to_raster \
@@ -76,6 +80,14 @@ export GIS_AGENT_HARNESS_API_KEY=your-key
 
 Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring without making a live request.
 
+For local governance of live QGIS execution:
+
+```bash
+export GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM=true
+```
+
+When this flag is enabled, `qgis-run --execute` returns a structured risk summary unless `--confirm` is provided.
+
 `litellm-config.yaml` may use `${ENV_VAR}` or `os.environ/ENV_VAR` placeholders. The local config loader resolves both forms before adapter selection.
 
 ## Logs And Recovery
@@ -85,12 +97,13 @@ Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring 
 - `.runs/telemetry.jsonl`: local telemetry mirror of snapshots
 - `.runs/logs/<run_id>/`: per-step scripts and sandbox results
 - `.runs/failed/`: copies of blocked or failed scripts
+- `qgis-run --execute`: requires explicit `--confirm` by default and emits a risk summary before execution
 - `show-state --format table`: terminal-friendly snapshot view
 - `list-runs`: compact run discovery view before replaying
 - `resume-hint`: latest failed-run summary with task context and next-step hint
 - `show-failure-files`: latest failed-run log/script paths for direct inspection
 - `show-replay`: suggested rerun command for the latest failed run
-- `adoption-report`: source hashes, CRS transformations, actions, qgis_process payloads, and omitted-step reasons
+- `adoption-report`: source hashes, CRS transformations, action history, dataset lineage, qgis_process payloads, and omitted-step reasons
 - `export-report`: one-shot report bundle with state, summary, failure-file, replay, adoption outputs, and an index file
 - `show-report`: reopen an exported report bundle from `reports/`
 - `replay-last --dry-run`: preview the reconstructed replay task and command

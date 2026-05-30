@@ -33,10 +33,13 @@ class QGISProcessResult:
     command: list[str]
     parameters: dict[str, Any]
     dry_run: bool
+    confirmed: bool = False
+    approval_required: bool = False
     returncode: int | None = None
     stdout: str = ""
     stderr: str = ""
     executable_found: bool = False
+    risk: dict[str, Any] = field(default_factory=dict)
     observations: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -77,18 +80,38 @@ def run_qgis_process(
     *,
     dry_run: bool = False,
     timeout_seconds: int = 120,
+    confirmed: bool = False,
 ) -> QGISProcessResult:
     validate_algorithm_id(request.algorithm)
     command = [request.qgis_process_path, "run", request.algorithm, "-"]
     executable = shutil.which(request.qgis_process_path)
+    serialized_parameters = json.dumps(request.parameters, ensure_ascii=False)
     result = QGISProcessResult(
         algorithm=request.algorithm,
         command=command,
         parameters=request.parameters,
         dry_run=dry_run,
+        confirmed=confirmed,
         executable_found=executable is not None,
+        risk={
+            "payload_bytes": len(serialized_parameters.encode("utf-8")),
+            "parameter_count": _count_parameters(request.parameters),
+            "input_paths": _extract_input_paths(request.parameters),
+        },
     )
     if dry_run:
+        return result
+    if not confirmed:
+        result.returncode = 1
+        result.approval_required = True
+        result.stderr = "qgis_process execution requires explicit confirmation."
+        result.observations.append(
+            {
+                "code": "qgis_process_confirmation_required",
+                "message": result.stderr,
+                "suggested_fix": "Re-run with --confirm after reviewing the payload and risk summary.",
+            }
+        )
         return result
     if executable is None:
         result.returncode = 127
@@ -106,7 +129,7 @@ def run_qgis_process(
     try:
         completed = subprocess.run(
             command,
-            input=json.dumps(request.parameters, ensure_ascii=False),
+            input=serialized_parameters,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
@@ -139,3 +162,25 @@ def run_qgis_process(
             }
         )
     return result
+
+
+def _count_parameters(payload: Any) -> int:
+    if isinstance(payload, dict):
+        return len(payload) + sum(_count_parameters(value) for value in payload.values())
+    if isinstance(payload, list):
+        return sum(_count_parameters(value) for value in payload)
+    return 0
+
+
+def _extract_input_paths(payload: Any) -> list[str]:
+    paths: list[str] = []
+    if isinstance(payload, dict):
+        for value in payload.values():
+            paths.extend(_extract_input_paths(value))
+    elif isinstance(payload, list):
+        for value in payload:
+            paths.extend(_extract_input_paths(value))
+    elif isinstance(payload, str):
+        if Path(payload).suffix.lower() in {".gpkg", ".shp", ".geojson", ".json", ".tif", ".tiff"}:
+            paths.append(payload)
+    return sorted(set(paths))

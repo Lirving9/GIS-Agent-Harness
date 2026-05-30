@@ -168,6 +168,16 @@ def _render_adoption_report_text(payload: dict[str, object]) -> str:
     for action in payload.get("actions", []):
         item = action if isinstance(action, dict) else {}
         lines.append(f"- iter={item.get('iteration', '')}, action={item.get('action', '')}, output={item.get('output_vector_path', '')}")
+    lines.append("lineage:")
+    lineage = payload.get("lineage", {}) if isinstance(payload.get("lineage"), dict) else {}
+    for node in lineage.get("nodes", []):
+        item = node if isinstance(node, dict) else {}
+        lines.append(
+            f"- node {item.get('id', '')}: kind={item.get('kind', '')}, role={item.get('role', '')}, path={item.get('path', '')}, action={item.get('action', '')}"
+        )
+    for edge in lineage.get("edges", []):
+        item = edge if isinstance(edge, dict) else {}
+        lines.append(f"- edge {item.get('from', '')} -> {item.get('to', '')}: {item.get('relation', '')}")
     lines.append("omitted_steps:")
     for omitted in payload.get("omitted_steps", []):
         item = omitted if isinstance(omitted, dict) else {}
@@ -315,6 +325,7 @@ def spatial_map_command(root: Path, max_datasets: int, exclude_dir: tuple[str, .
 @click.option("--qgis-process-path", default="qgis_process", show_default=True)
 @click.option("--timeout", "timeout_seconds", default=120, show_default=True, type=int)
 @click.option("--dry-run/--execute", default=True, show_default=True, help="Render the qgis_process request or execute it.")
+@click.option("--confirm", is_flag=True, help="Required with --execute before running qgis_process locally.")
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the result JSON.")
 def qgis_run_command(
     algorithm: str,
@@ -323,19 +334,26 @@ def qgis_run_command(
     qgis_process_path: str,
     timeout_seconds: int,
     dry_run: bool,
+    confirm: bool,
     output_file: Path | None,
 ) -> None:
     """Run or preview a qgis_process algorithm using a JSON payload."""
     from .qgis_process import QGISProcessError, QGISProcessRequest, load_payload, run_qgis_process
 
     try:
+        config = HarnessConfig.from_env()
         parameters = load_payload(payload_file, payload_json)
         request = QGISProcessRequest(
             algorithm=algorithm,
             parameters=parameters,
             qgis_process_path=qgis_process_path,
         )
-        result = run_qgis_process(request, dry_run=dry_run, timeout_seconds=timeout_seconds)
+        result = run_qgis_process(
+            request,
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+            confirmed=(confirm or not config.qgis_require_confirm),
+        )
     except QGISProcessError as exc:
         raise click.ClickException(str(exc)) from exc
     _dump(result.to_dict(), output_file=output_file)

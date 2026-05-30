@@ -48,6 +48,7 @@ class HarnessConfig:
     sandbox_write_root: Path = Path(".runs/artifacts")
     telemetry_local_only: bool = True
     telemetry_file: Path = Path(".runs/telemetry.jsonl")
+    qgis_require_confirm: bool = True
 
     def __post_init__(self) -> None:
         if self.sandbox_write_root == Path(".runs/artifacts"):
@@ -93,6 +94,7 @@ class HarnessConfig:
             telemetry_file=Path(
                 os.getenv("GIS_AGENT_HARNESS_TELEMETRY_FILE", str(run_root / "telemetry.jsonl"))
             ),
+            qgis_require_confirm=_env_bool("GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM", True),
         )
 
     def copy(self) -> "HarnessConfig":

@@ -24,6 +24,7 @@
 - `spatial_tools.py`: vector and raster inspection helpers
 - `spatial_context.py`: compressed spatial repo map generator for vector/raster metadata
 - `qgis_process.py`: JSON-first wrapper for previewing or running `qgis_process` algorithms
+- `qgis_process.py`: JSON-first wrapper for previewing or running `qgis_process` algorithms with a local approval gate for live execution
 - `guardrails.py`: CRS checks, invalid-geometry checks, and AST inspection
 - `sandbox.py`: subprocess wrapper with timeout, failed-script capture, output-path policy, and risk preview
 - `state_store.py`: append-only Markdown and JSONL state snapshots
@@ -56,7 +57,7 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 
 - `spatial-map` gives the model an Aider-style map for GIS data: dataset kind, driver, CRS, bounds, geometry type, feature count, schema, and raster dimensions without raw geometry dumps.
 - `qgis-run` provides a deterministic QGIS command surface: the agent emits JSON and the harness previews or executes `qgis_process run <algorithm> -` with that payload on stdin.
-- `adoption-report` records source hashes, CRS transformations, actions, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
+- `adoption-report` records source hashes, CRS transformations, action lineage, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
 
 ## Recovery Surface
 

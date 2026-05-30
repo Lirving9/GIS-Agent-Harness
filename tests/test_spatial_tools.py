@@ -61,3 +61,20 @@ def test_qgis_process_dry_run_payload_json() -> None:
     assert payload["dry_run"] is True
     assert payload["command"] == ["qgis_process", "run", "native:buffer", "-"]
     assert payload["parameters"]["inputs"]["DISTANCE"] == 500
+    assert payload["risk"]["payload_bytes"] > 0
+    assert payload["risk"]["parameter_count"] >= 2
+
+
+def test_qgis_process_execute_requires_confirmation() -> None:
+    parameters = load_payload(payload_json='{"inputs": {"INPUT": "roads.gpkg", "DISTANCE": 500}}')
+    result = run_qgis_process(
+        QGISProcessRequest(algorithm="native:buffer", parameters=parameters),
+        dry_run=False,
+        confirmed=False,
+    )
+
+    payload = result.to_dict()
+    assert payload["success"] is False
+    assert payload["approval_required"] is True
+    assert payload["confirmed"] is False
+    assert payload["observations"][0]["code"] == "qgis_process_confirmation_required"

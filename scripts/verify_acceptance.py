@@ -235,11 +235,13 @@ def main() -> None:
             and qgis_payload["dry_run"] is True
             and qgis_payload["algorithm"] == "native:buffer"
             and qgis_payload["parameters"]["inputs"]["DISTANCE"] == 500
+            and qgis_payload["risk"]["payload_bytes"] > 0
         )
         adoption_report_ok = (
             adoption_payload["run_id"] == first_readme_run
             and bool(adoption_payload["source_data"])
             and bool(adoption_payload["actions"])
+            and bool(adoption_payload["lineage"]["nodes"])
         )
         documentation_ok = all(
             (ROOT / path).exists()

@@ -74,6 +74,27 @@ def test_qgis_run_command_dry_run() -> None:
     assert payload["dry_run"] is True
     assert payload["command"] == ["qgis_process", "run", "native:buffer", "-"]
     assert payload["parameters"]["inputs"]["DISTANCE"] == 500
+    assert payload["risk"]["payload_bytes"] > 0
+
+
+def test_qgis_run_command_execute_requires_confirm() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "qgis-run",
+            "native:buffer",
+            "--payload-json",
+            '{"inputs": {"INPUT": "roads.gpkg", "DISTANCE": 500}}',
+            "--execute",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["approval_required"] is True
+    assert payload["confirmed"] is False
+    assert payload["observations"][0]["code"] == "qgis_process_confirmation_required"
 
 
 def test_show_state_command(tmp_path: Path) -> None:
@@ -1789,6 +1810,8 @@ def test_adoption_report_command(tmp_path: Path, fixture_paths: dict[str, str]) 
     assert payload["source_data"][0]["hashes"]["sha256"]
     assert payload["crs_transformations"][0]["target_crs"] == "EPSG:4326"
     assert payload["actions"][0]["action"] == "to_crs"
+    assert any(node["kind"] == "action" and node["action"] == "to_crs" for node in payload["lineage"]["nodes"])
+    assert any(edge["relation"] == "generated" for edge in payload["lineage"]["edges"])
 
 
 def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:

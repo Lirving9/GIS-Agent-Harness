@@ -9,8 +9,9 @@ GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It
 - CRS, geometry, and AST guardrails before execution
 - compressed spatial repo maps for vector/raster metadata without dumping full geometries
 - JSON-first `qgis_process` request previews for deterministic QGIS CLI execution
+- explicit local approval checkpoints before live `qgis_process` execution
 - sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
-- append-only state snapshots plus local telemetry and adoption reports for recovery and audit
+- append-only state snapshots plus local telemetry, lineage-rich adoption reports, and recovery audit bundles
 
 ## Scope
 
@@ -85,6 +86,10 @@ python3 -m gis_agent_harness.cli spatial-map tests/fixtures
 python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --dry-run
+python3 -m gis_agent_harness.cli qgis-run native:buffer \
+  --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
+  --execute \
+  --confirm
 python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
@@ -134,6 +139,8 @@ GIS_AGENT_HARNESS_API_KEY=your-key
 `spatial-map` builds a compact metadata map for local spatial datasets. It records format, CRS, bounds, geometry type, feature counts, attribute schema, and raster shape without loading full coordinate arrays into model context.
 
 `qgis-run` accepts a QGIS algorithm id plus a JSON object and defaults to `--dry-run`, returning the `qgis_process run <algorithm> -` request and stdin payload that would be made. Use `--execute` only when QGIS is installed locally and you want the harness to call `qgis_process`.
+
+Live `qgis_process` execution is gated by an explicit local approval checkpoint. The command returns a risk summary with payload size, parameter count, and detected input paths; add `--confirm` after review to allow execution. Set `GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM=false` only if you intentionally want to disable this local guardrail.
 
 ## Tests
 
@@ -196,7 +203,7 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
 
-Use `adoption-report` for a structured handoff with source hashes, CRS transformations, actions, qgis_process payloads, and omitted-step reasons.
+Use `adoption-report` for a structured handoff with source hashes, CRS transformations, action history, derived-data lineage, qgis_process payloads, and omitted-step reasons.
 
 For a bundled snapshot, use `export-report` to write state, summary, failure, replay, adoption, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export.
 

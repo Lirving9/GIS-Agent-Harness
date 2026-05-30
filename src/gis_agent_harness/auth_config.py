@@ -96,6 +96,7 @@ def doctor_config(config: HarnessConfig) -> dict[str, Any]:
         "api_key_masked": mask_secret(config.api_key),
         "telemetry_file": str(config.telemetry_file),
         "sandbox_write_root": str(config.sandbox_write_root),
+        "qgis_require_confirm": config.qgis_require_confirm,
         "missing": sorted(set(missing)),
         "warnings": warnings,
     }

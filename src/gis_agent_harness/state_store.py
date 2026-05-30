@@ -399,6 +399,69 @@ class StateStore:
                 for item in terminal_observations
             ]
 
+        lineage_nodes: list[dict[str, Any]] = []
+        lineage_edges: list[dict[str, Any]] = []
+        seen_node_ids: set[str] = set()
+
+        def add_node(node: dict[str, Any]) -> None:
+            node_id = str(node["id"])
+            if node_id in seen_node_ids:
+                return
+            seen_node_ids.add(node_id)
+            lineage_nodes.append(node)
+
+        def add_edge(source: str, target: str, relation: str) -> None:
+            edge = {"from": source, "to": target, "relation": relation}
+            if edge not in lineage_edges:
+                lineage_edges.append(edge)
+
+        for dataset in source_data:
+            path_text = str(dataset.get("path", ""))
+            if not path_text:
+                continue
+            add_node(
+                {
+                    "id": f"dataset:{dataset.get('role')}:{path_text}",
+                    "kind": "dataset",
+                    "role": dataset.get("role"),
+                    "path": path_text,
+                    "sha256": ((dataset.get("hashes") or {}).get("sha256") if isinstance(dataset.get("hashes"), dict) else None),
+                }
+            )
+
+        current_dataset_node = (
+            f"dataset:input_vector:{task['vector_path']}" if task.get("vector_path") else None
+        )
+        for action in actions:
+            action_id = f"action:{action.get('iteration')}:{action.get('action')}"
+            output_path = str(action.get("output_vector_path") or "")
+            add_node(
+                {
+                    "id": action_id,
+                    "kind": "action",
+                    "iteration": action.get("iteration"),
+                    "action": action.get("action"),
+                    "model_used": action.get("model_used"),
+                    "output_path": output_path,
+                }
+            )
+            if current_dataset_node is not None:
+                add_edge(current_dataset_node, action_id, "consumed")
+            if output_path:
+                derived_id = f"dataset:derived:{output_path}"
+                add_node(
+                    {
+                        "id": derived_id,
+                        "kind": "dataset",
+                        "role": "derived_vector",
+                        "path": output_path,
+                    }
+                )
+                add_edge(action_id, derived_id, "generated")
+                current_dataset_node = derived_id
+
+        lineage = {"nodes": lineage_nodes, "edges": lineage_edges}
+
         return {
             "run_id": run_id,
             "status": terminal_row.get("status"),
@@ -408,6 +471,7 @@ class StateStore:
             "crs_transformations": crs_transformations,
             "actions": actions,
             "qgis_process_payloads": qgis_payloads,
+            "lineage": lineage,
             "omitted_steps": omitted_steps,
             "snapshot_count": len(run_rows),
         }

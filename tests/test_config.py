@@ -19,3 +19,11 @@ def test_config_reads_live_api_env(monkeypatch) -> None:
 def test_resolve_env_reference_supports_braced_placeholders(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "secret-key")
     assert resolve_env_reference("${OPENAI_API_KEY}") == "secret-key"
+
+
+def test_config_reads_qgis_require_confirm_env(monkeypatch) -> None:
+    monkeypatch.setenv("GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM", "false")
+
+    config = HarnessConfig.from_env()
+
+    assert config.qgis_require_confirm is False

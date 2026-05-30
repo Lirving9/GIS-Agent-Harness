@@ -22,6 +22,8 @@
 ## Safety And State
 
 - `spatial_tools.py`: vector and raster inspection helpers
+- `spatial_context.py`: compressed spatial repo map generator for vector/raster metadata
+- `qgis_process.py`: JSON-first wrapper for previewing or running `qgis_process` algorithms
 - `guardrails.py`: CRS checks, invalid-geometry checks, and AST inspection
 - `sandbox.py`: subprocess wrapper with timeout, failed-script capture, output-path policy, and risk preview
 - `state_store.py`: append-only Markdown and JSONL state snapshots
@@ -50,12 +52,19 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 8. Optional hooks mirror snapshots into local telemetry and the TUI.
 9. Recovery commands and the TUI replay view use the recorded task and failure artifacts to reconstruct the next run.
 
+## Spatial ACI
+
+- `spatial-map` gives the model an Aider-style map for GIS data: dataset kind, driver, CRS, bounds, geometry type, feature count, schema, and raster dimensions without raw geometry dumps.
+- `qgis-run` provides a deterministic QGIS command surface: the agent emits JSON and the harness previews or executes `qgis_process run <algorithm> -` with that payload on stdin.
+- `adoption-report` records source hashes, CRS transformations, actions, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
+
 ## Recovery Surface
 
 - `list-runs`: recent run discovery entrypoint for local recovery workflows
 - `resume-hint`: compact summary of the latest failed run
 - `show-failure-files`: failed log/script locator for local debugging
 - `show-replay`: suggested rerun command built from stored task context
+- `adoption-report`: structured per-run audit and context handoff report
 - `show-report`: local report-bundle reader for exported recovery snapshots
 - `replay-last`: execute a new run from the latest failed task context with optional overrides
 

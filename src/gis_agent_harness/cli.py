@@ -139,6 +139,42 @@ def _render_index_text(payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def _render_adoption_report_text(payload: dict[str, object]) -> str:
+    lines = [
+        f"run_id: {payload.get('run_id', '')}",
+        f"status: {payload.get('status', '')}",
+        f"summary: {payload.get('summary', '')}",
+        "source_data:",
+    ]
+    for dataset in payload.get("source_data", []):
+        item = dataset if isinstance(dataset, dict) else {}
+        lines.append(
+            "- "
+            + ", ".join(
+                [
+                    f"role={item.get('role', '')}",
+                    f"path={item.get('path', '')}",
+                    f"kind={item.get('kind', '')}",
+                    f"crs={item.get('crs', '')}",
+                    f"sha256={(item.get('hashes') or {}).get('sha256', '') if isinstance(item.get('hashes'), dict) else ''}",
+                ]
+            )
+        )
+    lines.append("crs_transformations:")
+    for transform in payload.get("crs_transformations", []):
+        item = transform if isinstance(transform, dict) else {}
+        lines.append(f"- {item.get('source_crs', '')} -> {item.get('target_crs', '')}: {item.get('reason', '')}")
+    lines.append("actions:")
+    for action in payload.get("actions", []):
+        item = action if isinstance(action, dict) else {}
+        lines.append(f"- iter={item.get('iteration', '')}, action={item.get('action', '')}, output={item.get('output_vector_path', '')}")
+    lines.append("omitted_steps:")
+    for omitted in payload.get("omitted_steps", []):
+        item = omitted if isinstance(omitted, dict) else {}
+        lines.append(f"- {item.get('code', '')}: {item.get('reason', '')}")
+    return "\n".join(lines)
+
+
 def _render_templates_table(rows: list[dict[str, object]]) -> str:
     headers = ["template_id", "title", "fields"]
     normalized = [
@@ -254,6 +290,57 @@ def inspect_raster_command(path: Path) -> None:
     except DataInspectionError as exc:
         raise click.ClickException(str(exc)) from exc
     _dump(result.to_dict())
+
+
+@main.command("spatial-map")
+@click.argument("root", type=click.Path(path_type=Path), default=Path("."))
+@click.option("--max-datasets", default=50, show_default=True, type=int)
+@click.option("--exclude-dir", multiple=True, help="Additional directory name to skip while scanning.")
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the map JSON.")
+def spatial_map_command(root: Path, max_datasets: int, exclude_dir: tuple[str, ...], output_file: Path | None) -> None:
+    """Build a compressed spatial repo map without reading full geometries."""
+    from .spatial_context import build_spatial_repo_map
+
+    try:
+        result = build_spatial_repo_map(root, max_datasets=max_datasets, exclude_dirs=set(exclude_dir))
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+    _dump(result.to_dict(), output_file=output_file)
+
+
+@main.command("qgis-run")
+@click.argument("algorithm")
+@click.option("--payload-file", type=click.Path(path_type=Path), default=None, help="JSON object passed to qgis_process stdin.")
+@click.option("--payload-json", default=None, help="Inline JSON object passed to qgis_process stdin.")
+@click.option("--qgis-process-path", default="qgis_process", show_default=True)
+@click.option("--timeout", "timeout_seconds", default=120, show_default=True, type=int)
+@click.option("--dry-run/--execute", default=True, show_default=True, help="Render the qgis_process request or execute it.")
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the result JSON.")
+def qgis_run_command(
+    algorithm: str,
+    payload_file: Path | None,
+    payload_json: str | None,
+    qgis_process_path: str,
+    timeout_seconds: int,
+    dry_run: bool,
+    output_file: Path | None,
+) -> None:
+    """Run or preview a qgis_process algorithm using a JSON payload."""
+    from .qgis_process import QGISProcessError, QGISProcessRequest, load_payload, run_qgis_process
+
+    try:
+        parameters = load_payload(payload_file, payload_json)
+        request = QGISProcessRequest(
+            algorithm=algorithm,
+            parameters=parameters,
+            qgis_process_path=qgis_process_path,
+        )
+        result = run_qgis_process(request, dry_run=dry_run, timeout_seconds=timeout_seconds)
+    except QGISProcessError as exc:
+        raise click.ClickException(str(exc)) from exc
+    _dump(result.to_dict(), output_file=output_file)
+    if not result.success:
+        raise click.exceptions.Exit(1)
 
 
 @main.command("run-task")
@@ -581,13 +668,52 @@ def show_replay_command(
     _dump(payload, output_file=output_file)
 
 
+@main.command("adoption-report")
+@click.argument("run_id", required=False)
+@click.option("--latest", is_flag=True, help="Use the most recent run when RUN_ID is omitted.")
+@click.option("--format", "output_format", type=click.Choice(["json", "text"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the report.")
+@click.option("--state-file", type=click.Path(path_type=Path), default=None)
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+def adoption_report_command(
+    run_id: str | None,
+    latest: bool,
+    output_format: str,
+    output_file: Path | None,
+    state_file: Path | None,
+    run_root: Path | None,
+) -> None:
+    """Export a per-run adoption report with data hashes and CRS decisions."""
+    from .state_store import StateStore
+
+    if latest and run_id is not None:
+        raise click.ClickException("Use either RUN_ID or --latest, not both.")
+    config = _load_runtime_config(state_file=state_file, run_root=run_root)
+    store = StateStore(config.state_file, config.run_root)
+    selected_run_id = run_id
+    if selected_run_id is None:
+        rows = store.query_runs(limit=1)
+        if rows:
+            selected_run_id = str(rows[0]["run_id"])
+    if selected_run_id is None:
+        raise click.ClickException("No run id was provided and no runs are available.")
+
+    payload = store.adoption_report(selected_run_id)
+    if payload is None:
+        raise click.ClickException("No matching run snapshots are available.")
+    if output_format == "text":
+        _emit_text(_render_adoption_report_text(payload), output_file=output_file)
+        return
+    _dump(payload, output_file=output_file)
+
+
 @main.command("show-report")
 @click.option("--report-dir", type=click.Path(path_type=Path), default=None, help="Read a specific exported report bundle directory.")
 @click.option("--latest", is_flag=True, help="Read the most recent bundle under the reports root.")
 @click.option("--reports-root", type=click.Path(path_type=Path), default=Path("reports"), show_default=True)
 @click.option(
     "--section",
-    type=click.Choice(["index", "summary", "state", "failure-files", "replay"]),
+    type=click.Choice(["index", "summary", "state", "failure-files", "replay", "adoption"]),
     default="index",
     show_default=True,
 )
@@ -619,6 +745,7 @@ def show_report_command(
         "state": {"json": "state.json", "text": "state.txt"},
         "failure-files": {"json": "failure-files.json", "text": "failure-files.txt"},
         "replay": {"json": "replay.json", "text": "replay.txt"},
+        "adoption": {"json": "adoption.json", "text": "adoption.txt"},
     }
     artifact_path = resolved_dir / filenames[section][output_format]
     if not artifact_path.exists():
@@ -695,7 +822,7 @@ def replay_last_command(
 @click.option(
     "--only",
     default=None,
-    help="Comma-separated subset of report sections to export: summary,state,failure-files,replay,index.",
+    help="Comma-separated subset of report sections to export: summary,state,failure-files,replay,adoption,index.",
 )
 @click.option("--print-index", is_flag=True, help="Print the generated report index instead of the default JSON summary.")
 @click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory that will receive the report files.")
@@ -722,8 +849,8 @@ def export_report_command(
     selected_sections = None
     if profile:
         profiles = {
-            "quick": {"summary", "replay", "index"},
-            "full": {"summary", "state", "failure-files", "replay", "index"},
+            "quick": {"summary", "replay", "adoption", "index"},
+            "full": {"summary", "state", "failure-files", "replay", "adoption", "index"},
             "debug": {"state", "failure-files", "replay", "index"},
         }
         if profile not in profiles:
@@ -731,7 +858,7 @@ def export_report_command(
         selected_sections = profiles[profile]
     if only:
         selected_sections = {item.strip() for item in only.split(",") if item.strip()}
-        allowed_sections = {"summary", "state", "failure-files", "replay", "index"}
+        allowed_sections = {"summary", "state", "failure-files", "replay", "adoption", "index"}
         unknown = selected_sections - allowed_sections
         if unknown:
             raise click.ClickException(f"Unsupported report section(s): {', '.join(sorted(unknown))}")
@@ -771,6 +898,7 @@ def export_report_command(
         raise click.ClickException("No matching run snapshots are available.")
 
     run_rows = store.rows_for_run(summary["run_id"])
+    adoption_payload = store.adoption_report(summary["run_id"])
 
     if output_dir is None:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -789,6 +917,11 @@ def export_report_command(
     if selected_sections is None or "replay" in selected_sections:
         entries["replay.json"] = _render_json(replay_payload)
         entries["replay.txt"] = _render_replay_table(replay_payload)
+    if selected_sections is None or "adoption" in selected_sections:
+        if adoption_payload is None:
+            raise click.ClickException("Unable to build the adoption report for this run.")
+        entries["adoption.json"] = _render_json(adoption_payload)
+        entries["adoption.txt"] = _render_adoption_report_text(adoption_payload)
     written = _write_report_bundle(output_dir, entries)
     index_text = None
     if selected_sections is None or "index" in selected_sections:

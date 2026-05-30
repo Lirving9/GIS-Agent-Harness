@@ -18,6 +18,7 @@ __pycache__/
 .pytest-smoke/
 .local-fixtures/
 reports/
+step/*.md
 !.runs/logs/.gitkeep
 !.runs/failed/.gitkeep
 !.runs/artifacts/.gitkeep

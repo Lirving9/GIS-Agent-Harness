@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -8,6 +9,9 @@ from typing import Any
 from .errors import Observation
 from .logging_utils import ensure_run_dirs, utc_now
 from .state_hooks import StateHook
+
+VECTOR_SUFFIXES = {".gpkg", ".shp", ".geojson", ".json"}
+RASTER_SUFFIXES = {".tif", ".tiff"}
 
 
 @dataclass(slots=True)
@@ -243,6 +247,169 @@ class StateStore:
             "observations": observations,
             "artifacts": dict(terminal_row.get("artifacts") or {}),
             "next_step_hint": observations[0].get("suggested_fix") if observations else None,
+        }
+
+    def _hash_file(self, path: Path) -> str | None:
+        if not path.exists() or not path.is_file():
+            return None
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _dataset_hashes(self, path: Path) -> dict[str, Any]:
+        if path.suffix.lower() == ".shp":
+            parts = {
+                str(part): self._hash_file(part)
+                for part in sorted(path.parent.glob(f"{path.stem}.*"))
+                if part.is_file()
+            }
+            return {"sha256": parts.get(str(path)), "parts": parts}
+        return {"sha256": self._hash_file(path)}
+
+    def _dataset_report(self, path_text: str, role: str) -> dict[str, Any]:
+        path = Path(path_text)
+        payload: dict[str, Any] = {
+            "role": role,
+            "path": path_text,
+            "exists": path.exists(),
+            "hashes": self._dataset_hashes(path) if path.exists() else {},
+        }
+        suffix = path.suffix.lower()
+        if not path.exists():
+            return payload
+
+        try:
+            if suffix in VECTOR_SUFFIXES:
+                from .spatial_tools import inspect_vector
+
+                info = inspect_vector(path, sample_size=0)
+                schema = dict(info.schema or {})
+                payload.update(
+                    {
+                        "kind": "vector",
+                        "driver": info.driver,
+                        "crs": info.crs,
+                        "bounds": info.bounds,
+                        "geometry_type": schema.get("geometry"),
+                        "feature_count": info.feature_count,
+                        "schema": dict(schema.get("properties") or {}),
+                    }
+                )
+            elif suffix in RASTER_SUFFIXES:
+                from .spatial_tools import inspect_raster
+
+                info = inspect_raster(path)
+                payload.update(
+                    {
+                        "kind": "raster",
+                        "driver": info.driver,
+                        "crs": info.crs,
+                        "bounds": info.bounds,
+                        "width": info.width,
+                        "height": info.height,
+                        "band_count": info.count,
+                        "dtypes": info.dtypes,
+                        "nodatavals": info.nodatavals,
+                    }
+                )
+            else:
+                payload["kind"] = "file"
+        except Exception as exc:
+            payload["inspection_error"] = str(exc)
+        return payload
+
+    def adoption_report(self, run_id: str) -> dict[str, Any] | None:
+        run_rows = self.rows_for_run(run_id)
+        if not run_rows:
+            return None
+
+        start_row = next((row for row in run_rows if row.get("stage") == "start"), None)
+        terminal_row = next(
+            (row for row in reversed(run_rows) if row.get("status") in {"failed", "succeeded"}),
+            run_rows[-1],
+        )
+        task = dict(((start_row or {}).get("artifacts") or {}).get("task") or {})
+
+        dataset_roles: list[tuple[str, str]] = []
+        if task.get("vector_path"):
+            dataset_roles.append(("input_vector", str(task["vector_path"])))
+        if task.get("raster_path"):
+            dataset_roles.append(("input_raster", str(task["raster_path"])))
+        terminal_artifacts = dict(terminal_row.get("artifacts") or {})
+        final_path = terminal_artifacts.get("final_vector_path") or terminal_artifacts.get("current_vector_path")
+        if final_path and final_path != task.get("vector_path"):
+            dataset_roles.append(("final_vector", str(final_path)))
+
+        seen_dataset_keys: set[tuple[str, str]] = set()
+        source_data: list[dict[str, Any]] = []
+        for role, path_text in dataset_roles:
+            key = (role, path_text)
+            if key in seen_dataset_keys:
+                continue
+            seen_dataset_keys.add(key)
+            source_data.append(self._dataset_report(path_text, role))
+
+        actions: list[dict[str, Any]] = []
+        qgis_payloads: list[dict[str, Any]] = []
+        crs_transformations: list[dict[str, Any]] = []
+        for row in run_rows:
+            artifacts = dict(row.get("artifacts") or {})
+            if artifacts.get("action"):
+                actions.append(
+                    {
+                        "iteration": row.get("iteration"),
+                        "stage": row.get("stage"),
+                        "action": artifacts.get("action"),
+                        "model_used": artifacts.get("model_used"),
+                        "fallback_used": artifacts.get("fallback_used"),
+                        "output_vector_path": artifacts.get("output_vector_path"),
+                    }
+                )
+            if artifacts.get("qgis_process"):
+                qgis_payloads.append(
+                    {
+                        "iteration": row.get("iteration"),
+                        "stage": row.get("stage"),
+                        "request": artifacts["qgis_process"],
+                    }
+                )
+            for observation in row.get("observations") or []:
+                if observation.get("code") == "crs_mismatch":
+                    details = dict(observation.get("details") or {})
+                    transformation = {
+                        "iteration": row.get("iteration"),
+                        "source_crs": details.get("vector_crs"),
+                        "target_crs": details.get("raster_crs"),
+                        "reason": observation.get("message"),
+                    }
+                    if transformation not in crs_transformations:
+                        crs_transformations.append(transformation)
+
+        terminal_observations = list(terminal_row.get("observations") or [])
+        omitted_steps = []
+        if terminal_row.get("status") != "succeeded":
+            omitted_steps = [
+                {
+                    "code": item.get("code"),
+                    "reason": item.get("message"),
+                    "suggested_fix": item.get("suggested_fix"),
+                }
+                for item in terminal_observations
+            ]
+
+        return {
+            "run_id": run_id,
+            "status": terminal_row.get("status"),
+            "summary": terminal_row.get("summary"),
+            "task": task,
+            "source_data": source_data,
+            "crs_transformations": crs_transformations,
+            "actions": actions,
+            "qgis_process_payloads": qgis_payloads,
+            "omitted_steps": omitted_steps,
+            "snapshot_count": len(run_rows),
         }
 
     def task_for_run(self, run_id: str) -> dict[str, Any] | None:

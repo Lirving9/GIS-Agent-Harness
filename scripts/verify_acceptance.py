@@ -40,6 +40,8 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/task_templates.py",
     "src/gis_agent_harness/llm_adapters.py",
     "src/gis_agent_harness/llm_router.py",
+    "src/gis_agent_harness/qgis_process.py",
+    "src/gis_agent_harness/spatial_context.py",
     "src/gis_agent_harness/spatial_tools.py",
     "src/gis_agent_harness/guardrails.py",
     "src/gis_agent_harness/sandbox.py",
@@ -147,6 +149,54 @@ def main() -> None:
 
         recovery_state_file = Path(recovery_env["GIS_AGENT_HARNESS_STATE_FILE"])
         recovery_state_text = recovery_state_file.read_text(encoding="utf-8")
+        readme_run_root = Path(readme_env["GIS_AGENT_HARNESS_RUN_ROOT"])
+        readme_state_file = Path(readme_env["GIS_AGENT_HARNESS_STATE_FILE"])
+
+        _, spatial_map_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "spatial-map",
+                str(Path(readme_env["GIS_AGENT_HARNESS_FIXTURE_DIR"])),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        spatial_map_payload = json.loads(spatial_map_stdout)
+
+        _, qgis_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "qgis-run",
+                "native:buffer",
+                "--payload-json",
+                '{"inputs": {"INPUT": "roads.gpkg", "DISTANCE": 500}}',
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        qgis_payload = json.loads(qgis_stdout)
+
+        first_readme_run = readme_payload["succeeded_run"]["run_id"]
+        _, adoption_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "adoption-report",
+                first_readme_run,
+                "--state-file",
+                str(readme_state_file),
+                "--run-root",
+                str(readme_run_root),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        adoption_payload = json.loads(adoption_stdout)
 
         cli_help_ok = readme_payload["help_has_core_commands"] is True
         vector_probe_ok = all(
@@ -175,6 +225,22 @@ def main() -> None:
             text in recovery_state_text
             for text in ["# Agent State", "Summary:", "Suggested fix:", "stop | failed", "complete | succeeded"]
         )
+        spatial_context_ok = (
+            spatial_map_payload["dataset_count"] >= 2
+            and any(item["kind"] == "vector" and item.get("crs") for item in spatial_map_payload["datasets"])
+            and any(item["kind"] == "raster" and item.get("raster", {}).get("band_count") for item in spatial_map_payload["datasets"])
+        )
+        qgis_json_ok = (
+            qgis_payload["success"] is True
+            and qgis_payload["dry_run"] is True
+            and qgis_payload["algorithm"] == "native:buffer"
+            and qgis_payload["parameters"]["inputs"]["DISTANCE"] == 500
+        )
+        adoption_report_ok = (
+            adoption_payload["run_id"] == first_readme_run
+            and bool(adoption_payload["source_data"])
+            and bool(adoption_payload["actions"])
+        )
         documentation_ok = all(
             (ROOT / path).exists()
             for path in ["README.md", "docs/architecture.md", "docs/operations.md", "AGENTS.md", ".codex/config.toml"]
@@ -196,6 +262,9 @@ def main() -> None:
             "crs_guardrails": crs_guardrails_ok,
             "safe_execution": sandbox_ok,
             "self_heal_loop": self_heal_ok,
+            "spatial_context_map": spatial_context_ok,
+            "qgis_json_dry_run": qgis_json_ok,
+            "adoption_report": adoption_report_ok,
             "state_persistence": state_persistence_ok,
             "packaging_ready": packaging_ok,
             "automated_tests": True if args.skip_pytest else bool(pytest_result["ok"]),
@@ -219,6 +288,9 @@ def main() -> None:
                 "demo_recovery": recovery_payload,
                 "demo_readme_workflow": readme_payload,
                 "demo_failures": failures_payload,
+                "spatial_map": spatial_map_payload,
+                "qgis_json": qgis_payload,
+                "adoption_report": adoption_payload,
                 "recovery_state_file": str(recovery_state_file),
                 "recovery_state_excerpt": recovery_state_text.splitlines()[:16],
                 "pytest": pytest_result,

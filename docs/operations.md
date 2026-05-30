@@ -7,6 +7,10 @@ python3 scripts/generate_sample_data.py
 python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python3 -m gis_agent_harness.cli spatial-map tests/fixtures
+python3 -m gis_agent_harness.cli qgis-run native:buffer \
+  --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
+  --dry-run
 python3 -m gis_agent_harness.cli templates list
 python3 -m gis_agent_harness.cli goal run \
   --template align_vector_to_raster \
@@ -31,6 +35,7 @@ python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contai
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-replay
+python3 -m gis_agent_harness.cli adoption-report RUN_ID --format text
 python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
 python3 -m gis_agent_harness.cli show-report --latest
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
@@ -85,7 +90,8 @@ Use `python3 -m gis_agent_harness.cli config doctor` to validate profile wiring 
 - `resume-hint`: latest failed-run summary with task context and next-step hint
 - `show-failure-files`: latest failed-run log/script paths for direct inspection
 - `show-replay`: suggested rerun command for the latest failed run
-- `export-report`: one-shot report bundle with state, summary, failure-file, replay outputs, and an index file
+- `adoption-report`: source hashes, CRS transformations, actions, qgis_process payloads, and omitted-step reasons
+- `export-report`: one-shot report bundle with state, summary, failure-file, replay, adoption outputs, and an index file
 - `show-report`: reopen an exported report bundle from `reports/`
 - `replay-last --dry-run`: preview the reconstructed replay task and command
 - `replay-last --confirm`: required before replay execution

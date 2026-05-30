@@ -43,6 +43,39 @@ def test_inspect_raster_command(fixture_paths: dict[str, str]) -> None:
     assert payload["crs"] == "EPSG:4326"
 
 
+def test_spatial_map_command(fixture_paths: dict[str, str]) -> None:
+    runner = CliRunner()
+    root = Path(fixture_paths["sample_gpkg"]).parents[1]
+
+    result = runner.invoke(main, ["spatial-map", str(root), "--max-datasets", "10"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["dataset_count"] >= 2
+    assert any(item["kind"] == "vector" for item in payload["datasets"])
+    assert any(item["kind"] == "raster" for item in payload["datasets"])
+
+
+def test_qgis_run_command_dry_run() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "qgis-run",
+            "native:buffer",
+            "--payload-json",
+            '{"inputs": {"INPUT": "roads.gpkg", "DISTANCE": 500}}',
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["success"] is True
+    assert payload["dry_run"] is True
+    assert payload["command"] == ["qgis_process", "run", "native:buffer", "-"]
+    assert payload["parameters"]["inputs"]["DISTANCE"] == 500
+
+
 def test_show_state_command(tmp_path: Path) -> None:
     state_file = tmp_path / "AGENT_STATE.md"
     run_root = tmp_path / ".runs"
@@ -1672,6 +1705,90 @@ def test_show_report_command_rejects_missing_section(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "Report section is not available" in result.output
+
+
+def test_adoption_report_command(tmp_path: Path, fixture_paths: dict[str, str]) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-adopt",
+            iteration=0,
+            stage="start",
+            status="running",
+            summary="task",
+            artifacts={
+                "task": {
+                    "task_summary": "Adoption report",
+                    "vector_path": fixture_paths["sample_3857"],
+                    "raster_path": fixture_paths["sample_raster"],
+                    "source_crs": None,
+                }
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-adopt",
+            iteration=1,
+            stage="observe",
+            status="blocked",
+            summary="Preflight checks found issues.",
+            observations=[
+                Observation(
+                    code="crs_mismatch",
+                    message="Vector CRS EPSG:3857 does not match raster CRS EPSG:4326.",
+                    details={"vector_crs": "EPSG:3857", "raster_crs": "EPSG:4326"},
+                )
+            ],
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-adopt",
+            iteration=1,
+            stage="thought",
+            status="planned",
+            summary="Reproject vector.",
+            artifacts={
+                "action": "to_crs",
+                "model_used": "mock",
+                "fallback_used": False,
+                "output_vector_path": str(tmp_path / "aligned.gpkg"),
+            },
+        )
+    )
+    store.append(
+        StateSnapshot(
+            run_id="run-adopt",
+            iteration=2,
+            stage="complete",
+            status="succeeded",
+            summary="done",
+            artifacts={"final_vector_path": fixture_paths["sample_gpkg"]},
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "adoption-report",
+            "run-adopt",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "run-adopt"
+    assert payload["source_data"][0]["hashes"]["sha256"]
+    assert payload["crs_transformations"][0]["target_crs"] == "EPSG:4326"
+    assert payload["actions"][0]["action"] == "to_crs"
 
 
 def test_replay_last_command_requires_confirm(tmp_path: Path, fixture_paths: dict[str, str]) -> None:

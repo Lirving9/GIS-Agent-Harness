@@ -7,8 +7,10 @@ GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It
 - a Textual TUI for template-driven runs, monitoring, and recovery
 - a mock-first LiteLLM routing layer with profile-based provider config
 - CRS, geometry, and AST guardrails before execution
+- compressed spatial repo maps for vector/raster metadata without dumping full geometries
+- JSON-first `qgis_process` request previews for deterministic QGIS CLI execution
 - sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
-- append-only state snapshots plus local telemetry for recovery and audit
+- append-only state snapshots plus local telemetry and adoption reports for recovery and audit
 
 ## Scope
 
@@ -79,6 +81,10 @@ Built-in templates:
 python3 -m gis_agent_harness.cli --help
 python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
+python3 -m gis_agent_harness.cli spatial-map tests/fixtures
+python3 -m gis_agent_harness.cli qgis-run native:buffer \
+  --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
+  --dry-run
 python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
@@ -90,6 +96,7 @@ python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contai
 python3 -m gis_agent_harness.cli resume-hint
 python3 -m gis_agent_harness.cli show-failure-files
 python3 -m gis_agent_harness.cli show-replay
+python3 -m gis_agent_harness.cli adoption-report RUN_ID --format text
 python3 -m gis_agent_harness.cli export-report --latest-failed --print-index
 python3 -m gis_agent_harness.cli show-report --latest
 python3 -m gis_agent_harness.cli replay-last --run-id RUN_ID --source-crs EPSG:4326 --dry-run
@@ -121,6 +128,12 @@ GIS_AGENT_HARNESS_API_KEY=your-key
 `config doctor` validates the merged runtime config and reports missing provider/profile inputs without making a live network request.
 
 `litellm-config.yaml` accepts both `${ENV_VAR}` and `os.environ/ENV_VAR` references so the local examples stay compatible with common LiteLLM YAML styles.
+
+## Spatial Context And QGIS CLI
+
+`spatial-map` builds a compact metadata map for local spatial datasets. It records format, CRS, bounds, geometry type, feature counts, attribute schema, and raster shape without loading full coordinate arrays into model context.
+
+`qgis-run` accepts a QGIS algorithm id plus a JSON object and defaults to `--dry-run`, returning the `qgis_process run <algorithm> -` request and stdin payload that would be made. Use `--execute` only when QGIS is installed locally and you want the harness to call `qgis_process`.
 
 ## Tests
 
@@ -183,7 +196,9 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
 
-For a bundled snapshot, use `export-report` to write state, summary, failure, replay, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export.
+Use `adoption-report` for a structured handoff with source hashes, CRS transformations, actions, qgis_process payloads, and omitted-step reasons.
+
+For a bundled snapshot, use `export-report` to write state, summary, failure, replay, adoption, and index files in one step. If `--output-dir` is omitted, the bundle is written under `reports/<run_id>-<timestamp>/`. Use `--profile quick|full|debug` for presets or `--only` for a custom subset. Add `--print-index` if you want the generated index echoed directly in the terminal after export.
 
 ## Stop Conditions
 

@@ -9,7 +9,6 @@ import click
 
 from .config import HarnessConfig
 from .errors import DataInspectionError
-from .goal_runner import GoalRunner, GoalSpec, run_agent_task
 
 
 def _render_json(payload: object) -> str:
@@ -382,6 +381,7 @@ def run_task_command(
 ) -> None:
     """Run the guarded mock-first repair loop."""
     from .agent_loop import AgentTask
+    from .goal_runner import run_agent_task
 
     config = _load_runtime_config(
         state_file=state_file,
@@ -449,6 +449,8 @@ def goal_run_command(
     state_file: Path | None,
 ) -> None:
     """Render a template into AgentTask and run the existing agent loop."""
+    from .goal_runner import GoalRunner, GoalSpec
+
     config = _load_runtime_config(
         state_file=state_file,
         run_root=run_root,
@@ -551,7 +553,7 @@ def show_state_command(
     if output_format == "table":
         _emit_text(_render_state_table(rows), output_file=output_file)
         return
-    _emit_text(_render_json(rows) if rows else store.render_recent(limit=limit), output_file=output_file)
+    _emit_text(_render_json(rows), output_file=output_file)
 
 
 @main.command("list-runs")
@@ -792,6 +794,7 @@ def replay_last_command(
 ) -> None:
     """Replay the latest failed run using its stored task context."""
     from .agent_loop import AgentTask
+    from .goal_runner import run_agent_task
     from .state_store import StateStore
 
     config = _load_runtime_config(

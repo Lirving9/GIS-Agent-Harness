@@ -74,6 +74,18 @@ class GoalScreen(Screen[None]):
             payload[field.name] = self.query_one(f"#input-{field.name}", Input).value.strip()
         return payload
 
+    def _parse_max_iterations(self) -> int | None:
+        max_iterations_input = self.query_one("#input-max-iterations", Input).value.strip()
+        if not max_iterations_input:
+            return None
+        try:
+            max_iterations = int(max_iterations_input)
+        except ValueError as exc:
+            raise ValueError("max_iterations must be a positive integer.") from exc
+        if max_iterations <= 0:
+            raise ValueError("max_iterations must be a positive integer.")
+        return max_iterations
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         app = self.app
         if event.button.id == "goal-home":
@@ -82,8 +94,13 @@ class GoalScreen(Screen[None]):
         if event.button.id == "goal-recovery":
             app.open_recovery()
             return
-        max_iterations_input = self.query_one("#input-max-iterations", Input).value.strip()
-        max_iterations = int(max_iterations_input) if max_iterations_input else None
+        try:
+            max_iterations = self._parse_max_iterations()
+        except ValueError as exc:
+            self.query_one("#goal-preview-panel", JsonPanel).update_payload(
+                {"error": "invalid_input", "field": "max_iterations", "message": str(exc)}
+            )
+            return
         task_summary = self.query_one("#input-task-summary", Input).value.strip() or None
         if event.button.id == "goal-preview":
             preview = app.preview_goal(
@@ -150,6 +167,10 @@ class RunScreen(Screen[None]):
 
 
 class RecoveryScreen(Screen[None]):
+    def __init__(self) -> None:
+        super().__init__()
+        self._replay_armed = False
+
     def compose(self) -> ComposeResult:
         app = self.app
         yield Header(show_clock=False)
@@ -171,12 +192,21 @@ class RecoveryScreen(Screen[None]):
         if event.button.id == "recovery-home":
             app.pop_screen()
         elif event.button.id == "recovery-refresh":
+            self._replay_armed = False
             self.query_one("#recovery-summary", JsonPanel).update_payload(app.get_latest_failed_summary())
             self.query_one("#recovery-files", JsonPanel).update_payload(app.get_failure_files())
             self.query_one("#recovery-replay-panel", JsonPanel).update_payload(app.get_replay_payload())
         elif event.button.id == "recovery-dry-run":
+            self._replay_armed = True
             self.query_one("#recovery-result", LogPanel).set_text(str(app.build_replay_preview(source_crs=source_crs)))
         elif event.button.id == "recovery-replay":
+            if not self._replay_armed:
+                self._replay_armed = True
+                self.query_one("#recovery-result", LogPanel).set_text(
+                    "Replay requires confirmation. Review the replay payload, then press Replay again to execute."
+                )
+                return
+            self._replay_armed = False
             app.start_replay(source_crs=source_crs, screen=self)
 
     def show_result(self, payload: dict[str, Any]) -> None:

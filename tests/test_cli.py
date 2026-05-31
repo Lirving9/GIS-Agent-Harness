@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -23,6 +25,27 @@ def test_cli_help() -> None:
     assert "goal" in result.output
     assert "config" in result.output
     assert "tui" in result.output
+
+
+def test_cli_import_does_not_load_heavy_gis_dependencies() -> None:
+    code = """
+import json
+import sys
+import gis_agent_harness.cli
+
+print(json.dumps({
+    name: name in sys.modules
+    for name in ("fiona", "geopandas", "rasterio")
+}, sort_keys=True))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout) == {"fiona": False, "geopandas": False, "rasterio": False}
 
 
 def test_inspect_vector_command(fixture_paths: dict[str, str]) -> None:
@@ -308,6 +331,54 @@ def test_show_state_run_id_filter_command(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert len(payload) == 1
     assert payload[0]["run_id"] == "run-b"
+
+
+def test_show_state_missing_filter_returns_empty_json(tmp_path: Path) -> None:
+    state_file = tmp_path / "AGENT_STATE.md"
+    run_root = tmp_path / ".runs"
+    store = StateStore(state_file, run_root)
+    store.append(
+        StateSnapshot(
+            run_id="run-existing",
+            iteration=1,
+            stage="observe",
+            status="blocked",
+            summary="existing",
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--run-id",
+            "missing",
+            "--state-file",
+            str(state_file),
+            "--run-root",
+            str(run_root),
+        ],
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+
+
+def test_show_state_no_rows_returns_empty_json(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "show-state",
+            "--state-file",
+            str(tmp_path / "AGENT_STATE.md"),
+            "--run-root",
+            str(tmp_path / ".runs"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
 
 
 def test_list_runs_command(tmp_path: Path) -> None:

@@ -16,6 +16,28 @@ python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --execute \
   --confirm
+python3 -m gis_agent_harness.cli mcp-tools --domain raster
+python3 -m gis_agent_harness.cli align-params \
+  --params-json '{"target_crs":4326,"bbox":"-1,-2,3,4","distance":"500"}'
+python3 -m gis_agent_harness.cli stac-plan \
+  --collection sentinel-2-l2a \
+  --bbox -60,-4,-59,-3 \
+  --datetime 2023-06-01/2023-08-31 \
+  --max-cloud-cover 20
+python3 -m gis_agent_harness.cli route-resource --script-text "import torch"
+python3 -m gis_agent_harness.cli faas-manifest \
+  --function-name segment-cog \
+  --image gis-agent-harness:local \
+  --handler functions.segment:handler \
+  --script-text "import torch"
+python3 -m gis_agent_harness.cli qgis-plugin-manifest
+python3 -m gis_agent_harness.cli cog-viewer \
+  --output-html .runs/cog-viewer.html \
+  --cog-url file:///tmp/result.tif
+python3 -m gis_agent_harness.cli benchmark-manifest --junit-file .runs/geoai-benchmarks.xml
+python3 -m gis_agent_harness.cli method-review \
+  --analysis-json '{"method":"ordinary least squares on polygons","crs":"EPSG:4326"}'
+python3 -m gis_agent_harness.cli explain-exception "GEOSException: TopologyException: Self-intersection"
 python3 -m gis_agent_harness.cli templates list
 python3 -m gis_agent_harness.cli goal run \
   --template align_vector_to_raster \
@@ -126,6 +148,7 @@ When this flag is enabled, `qgis-run --execute` returns a structured risk summar
 - output-path block: keep generated artifacts under `.runs/artifacts`
 - timeout: inspect `.runs/logs/<run_id>/` and tighten the generated script
 - `python3 scripts/demo_failures.py` exercises both a guardrail-blocked script and a timeout path
+- `pytest -q tests/test_advanced_geoai.py` exercises MCP manifests, PEA alignment, visual review, STAC/FaaS/QGIS/COG manifests, benchmark JUnit output, adversarial review, and geospatial exception parsing
 
 ## Cleanup
 

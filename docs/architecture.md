@@ -25,6 +25,8 @@
 
 - `spatial_tools.py`: vector and raster inspection helpers
 - `spatial_context.py`: compressed spatial repo map generator for vector/raster metadata
+- `mcp_registry.py`: progressive-disclosure MCP-style GIS tool manifest
+- `parameter_alignment.py`: last-attempt CRS, bbox, and numeric argument normalization
 - `qgis_process.py`: JSON-first wrapper for previewing or running `qgis_process` algorithms
 - `qgis_process.py`: JSON-first wrapper for previewing or running `qgis_process` algorithms with a local approval gate for live execution
 - `guardrails.py`: CRS checks, invalid-geometry checks, and AST inspection
@@ -32,6 +34,15 @@
 - `state_store.py`: append-only Markdown and JSONL state snapshots
 - `state_hooks.py`: snapshot hook protocol plus callback/in-memory helpers
 - `telemetry.py`: local JSONL telemetry with simple secret redaction plus event-journal helpers
+- `visual_artifacts.py` / `visual_judge.py`: map artifact hashing, thumbnail capture, and deterministic visual review feedback
+- `stac_discovery.py`: dry-run STAC search plans for spatiotemporal asset discovery
+- `resource_router.py`: CPU/GPU track selection from static import analysis
+- `faas_planner.py`: function-as-a-service manifests without deployment side effects
+- `qgis_plugin.py`: QGIS MCP bridge plugin manifest
+- `cog_viewer.py`: static browser-side COG review page generator
+- `benchmarking.py` / `pipeline_reporting.py`: GeoAgentBench, GeoBenchX, GIS-Bench manifests plus JUnit XML
+- `adversarial_review.py`: deterministic methodology review for spatial analysis assumptions
+- `geo_exception_parser.py`: GDAL/GEOS/OGR error translation into repair guidance
 
 ## Templates
 
@@ -62,6 +73,10 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 - `spatial-map --dataset` is the progressive-disclosure path: fetch full detail for one dataset only after the compressed repo map identifies it as relevant.
 - `qgis-run` provides a deterministic QGIS command surface: the agent emits JSON and the harness previews or executes `qgis_process run <algorithm> -` with that payload on stdin.
 - `adoption-report` records source hashes, CRS transformations, action lineage, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
+- `mcp-tools` exposes only relevant tool domains on demand instead of loading the entire tool registry into context.
+- `align-params` normalizes common PEA failure modes such as integer EPSG codes, lowercase CRS strings, comma-separated bboxes, and numeric strings.
+- `stac-plan`, `faas-manifest`, `qgis-plugin-manifest`, `cog-viewer`, and `benchmark-manifest` turn cloud/desktop/browser/baseline integrations into local reviewable manifests before any external execution path is considered.
+- `capture-artifact`, `judge-map`, `method-review`, and `explain-exception` add the visual, adversarial, and self-correction loops from the architecture blueprint while remaining offline by default.
 
 ## Recovery Surface
 

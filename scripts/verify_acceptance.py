@@ -51,6 +51,19 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/state_store.py",
     "src/gis_agent_harness/state_hooks.py",
     "src/gis_agent_harness/telemetry.py",
+    "src/gis_agent_harness/mcp_registry.py",
+    "src/gis_agent_harness/parameter_alignment.py",
+    "src/gis_agent_harness/visual_artifacts.py",
+    "src/gis_agent_harness/visual_judge.py",
+    "src/gis_agent_harness/stac_discovery.py",
+    "src/gis_agent_harness/resource_router.py",
+    "src/gis_agent_harness/faas_planner.py",
+    "src/gis_agent_harness/qgis_plugin.py",
+    "src/gis_agent_harness/cog_viewer.py",
+    "src/gis_agent_harness/benchmarking.py",
+    "src/gis_agent_harness/adversarial_review.py",
+    "src/gis_agent_harness/geo_exception_parser.py",
+    "src/gis_agent_harness/pipeline_reporting.py",
     "src/gis_agent_harness/tui/__init__.py",
     "src/gis_agent_harness/tui/app.py",
     "src/gis_agent_harness/tui/screens.py",
@@ -76,6 +89,7 @@ REQUIRED_PATHS = [
     "tests/test_spatial_context.py",
     "tests/test_telemetry.py",
     "tests/test_tui_smoke.py",
+    "tests/test_advanced_geoai.py",
 ]
 
 
@@ -205,6 +219,210 @@ def main() -> None:
         )
         adoption_payload = json.loads(adoption_stdout)
 
+        advanced_dir = temp_root / "advanced"
+        advanced_dir.mkdir(parents=True, exist_ok=True)
+        visual_path = advanced_dir / "map.png"
+        visual_path.write_bytes(
+            bytes.fromhex(
+                "89504e470d0a1a0a0000000d4948445200000001000000010804000000b50c0c020000000b4944415478da63fcff1f0003030200efbfa7db0000000049454e44ae426082"
+            )
+        )
+        route_script = advanced_dir / "gpu-script.py"
+        route_script.write_text("import torch\n", encoding="utf-8")
+        junit_path = advanced_dir / "benchmark.xml"
+        cog_viewer_path = advanced_dir / "viewer.html"
+
+        _, mcp_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "mcp-tools",
+                "--domain",
+                "raster",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        mcp_payload = json.loads(mcp_stdout)
+
+        _, align_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "align-params",
+                "--params-json",
+                '{"target_crs": 4326, "bbox": "-1,-2,3,4", "distance": "500"}',
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        align_payload = json.loads(align_stdout)
+
+        _, capture_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "capture-artifact",
+                str(visual_path),
+                "--output-dir",
+                str(advanced_dir / "captures"),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        capture_payload = json.loads(capture_stdout)
+
+        _, judge_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "judge-map",
+                str(visual_path),
+                "--criteria-json",
+                '{"required_layers": ["buildings"], "observed_layers": [], "legend_required": true, "legend_present": false}',
+                "--output-dir",
+                str(advanced_dir / "captures"),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        judge_payload = json.loads(judge_stdout)
+
+        _, stac_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "stac-plan",
+                "--collection",
+                "sentinel-2-l2a",
+                "--bbox",
+                "-60,-4,-59,-3",
+                "--datetime",
+                "2023-06-01/2023-08-31",
+                "--max-cloud-cover",
+                "20",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        stac_payload = json.loads(stac_stdout)
+
+        _, route_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "route-resource",
+                "--script-file",
+                str(route_script),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        route_payload = json.loads(route_stdout)
+
+        _, faas_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "faas-manifest",
+                "--function-name",
+                "segment-cog",
+                "--image",
+                "gis-agent-harness:local",
+                "--handler",
+                "functions.segment:handler",
+                "--input-asset",
+                "file:///tmp/input.tif",
+                "--script-file",
+                str(route_script),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        faas_payload = json.loads(faas_stdout)
+
+        _, qgis_plugin_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "qgis-plugin-manifest",
+                "--plugin-name",
+                "GISAgentMCPBridge",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        qgis_plugin_payload = json.loads(qgis_plugin_stdout)
+
+        _, cog_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "cog-viewer",
+                "--output-html",
+                str(cog_viewer_path),
+                "--cog-url",
+                "file:///tmp/result.tif",
+                "--title",
+                "COG Acceptance",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        cog_payload = json.loads(cog_stdout)
+
+        _, benchmark_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "benchmark-manifest",
+                "--junit-file",
+                str(junit_path),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        benchmark_payload = json.loads(benchmark_stdout)
+
+        _, method_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "method-review",
+                "--analysis-json",
+                '{"method": "ordinary least squares on polygons", "crs": "EPSG:4326", "notes": "No spatial autocorrelation check was recorded."}',
+                "--max-rounds",
+                "2",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        method_payload = json.loads(method_stdout)
+
+        _, exception_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "explain-exception",
+                "GEOSException: TopologyException: Self-intersection",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        exception_payload = json.loads(exception_stdout)
+
         cli_help_ok = readme_payload["help_has_core_commands"] is True
         vector_probe_ok = all(
             key in readme_payload["inspect_vector"] for key in ["driver", "crs", "bounds", "schema", "sample_records"]
@@ -264,6 +482,54 @@ def main() -> None:
             for path in ["README.md", "docs/architecture.md", "docs/operations.md", "AGENTS.md", ".codex/config.toml"]
         )
         readme_commands_ok = readme_payload["replay_confirm"]["status"] == "succeeded"
+        mcp_progressive_ok = (
+            mcp_payload["protocol"] == "mcp-json-rpc"
+            and mcp_payload["progressive_disclosure"] is True
+            and {item["domain"] for item in mcp_payload["tools"]} == {"raster"}
+        )
+        parameter_alignment_ok = (
+            align_payload["parameters"]["target_crs"] == "EPSG:4326"
+            and align_payload["parameters"]["bbox"] == [-1.0, -2.0, 3.0, 4.0]
+            and align_payload["parameters"]["distance"] == 500.0
+        )
+        visual_capture_ok = (
+            capture_payload["content_type"] == "image/png"
+            and bool(capture_payload["sha256"])
+            and bool(capture_payload["thumbnail_base64"])
+        )
+        visual_judge_ok = (
+            judge_payload["status"] == "needs_revision"
+            and {item["code"] for item in judge_payload["issues"]} >= {"missing_layer", "missing_legend"}
+        )
+        stac_discovery_ok = (
+            stac_payload["network_required"] is False
+            and stac_payload["query"]["query"]["eo:cloud_cover"]["lt"] == 20
+        )
+        resource_routing_ok = route_payload["track"] == "gpu" and route_payload["container_profile"] == "geoai-gpu"
+        faas_manifest_ok = (
+            faas_payload["mode"] == "manifest-only"
+            and faas_payload["resource_route"]["track"] == "gpu"
+            and faas_payload["network_required"] is False
+        )
+        qgis_plugin_ok = (
+            qgis_plugin_payload["transport"] == "mcp-json-rpc"
+            and qgis_plugin_payload["approval_required"] is True
+        )
+        cog_viewer_ok = (
+            cog_payload["exists"] is True
+            and cog_viewer_path.exists()
+            and "COG Acceptance" in cog_viewer_path.read_text(encoding="utf-8")
+        )
+        benchmark_pipeline_ok = (
+            {"GeoAgentBench", "GeoBenchX", "GIS-Bench"} <= set(benchmark_payload["suites"])
+            and junit_path.exists()
+            and "testsuite" in junit_path.read_text(encoding="utf-8")
+        )
+        adversarial_review_ok = (
+            method_payload["status"] == "needs_revision"
+            and "spatial_autocorrelation" in {item["code"] for item in method_payload["findings"]}
+        )
+        exception_parser_ok = exception_payload["code"] == "invalid_geometry" and "make_valid" in exception_payload["suggested_fix"]
 
         pytest_result = {"ok": None, "stdout": "", "stderr": ""}
         if not args.skip_pytest:
@@ -290,6 +556,18 @@ def main() -> None:
             "packaging_ready": packaging_ok,
             "automated_tests": True if args.skip_pytest else bool(pytest_result["ok"]),
             "documentation_complete": documentation_ok,
+            "mcp_progressive_tools": mcp_progressive_ok,
+            "parameter_alignment": parameter_alignment_ok,
+            "visual_artifact_capture": visual_capture_ok,
+            "visual_judge": visual_judge_ok,
+            "stac_discovery_plan": stac_discovery_ok,
+            "resource_routing": resource_routing_ok,
+            "faas_manifest": faas_manifest_ok,
+            "qgis_plugin_manifest": qgis_plugin_ok,
+            "cog_viewer_manifest": cog_viewer_ok,
+            "benchmark_pipeline_manifest": benchmark_pipeline_ok,
+            "adversarial_method_review": adversarial_review_ok,
+            "geospatial_exception_parser": exception_parser_ok,
         }
         stop_conditions = {
             "all_acceptance_items": all(acceptance.values()),
@@ -312,6 +590,20 @@ def main() -> None:
                 "spatial_map": spatial_map_payload,
                 "qgis_json": qgis_payload,
                 "adoption_report": adoption_payload,
+                "advanced_geoai": {
+                    "mcp_tools": mcp_payload,
+                    "aligned_parameters": align_payload,
+                    "visual_capture": capture_payload,
+                    "visual_judge": judge_payload,
+                    "stac_plan": stac_payload,
+                    "resource_route": route_payload,
+                    "faas_manifest": faas_payload,
+                    "qgis_plugin": qgis_plugin_payload,
+                    "cog_viewer": cog_payload,
+                    "benchmark_manifest": benchmark_payload,
+                    "method_review": method_payload,
+                    "exception_parser": exception_payload,
+                },
                 "recovery_state_file": str(recovery_state_file),
                 "recovery_state_excerpt": recovery_state_text.splitlines()[:16],
                 "pytest": pytest_result,

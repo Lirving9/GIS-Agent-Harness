@@ -13,6 +13,10 @@ GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It
 - progressive spatial detail lookup for one dataset plus explicit schema truncation markers
 - JSON-first `qgis_process` request previews for deterministic QGIS CLI execution
 - explicit local approval checkpoints before live `qgis_process` execution
+- MCP-style progressive tool manifests and parameter alignment helpers
+- local visual artifact capture plus deterministic map-product review feedback
+- dry-run STAC, FaaS, QGIS plugin, benchmark, COG viewer, and resource-routing manifests
+- adversarial method review and geospatial exception explanation helpers
 - sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
 - append-only state snapshots plus local telemetry event journals, lineage-rich adoption reports, and recovery audit bundles
 
@@ -99,6 +103,28 @@ python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --execute \
   --confirm
+python3 -m gis_agent_harness.cli mcp-tools --domain raster
+python3 -m gis_agent_harness.cli align-params \
+  --params-json '{"target_crs":4326,"bbox":"-1,-2,3,4","distance":"500"}'
+python3 -m gis_agent_harness.cli stac-plan \
+  --collection sentinel-2-l2a \
+  --bbox -60,-4,-59,-3 \
+  --datetime 2023-06-01/2023-08-31 \
+  --max-cloud-cover 20
+python3 -m gis_agent_harness.cli route-resource --script-text "import torch"
+python3 -m gis_agent_harness.cli faas-manifest \
+  --function-name segment-cog \
+  --image gis-agent-harness:local \
+  --handler functions.segment:handler \
+  --script-text "import torch"
+python3 -m gis_agent_harness.cli qgis-plugin-manifest
+python3 -m gis_agent_harness.cli cog-viewer \
+  --output-html .runs/cog-viewer.html \
+  --cog-url file:///tmp/result.tif
+python3 -m gis_agent_harness.cli benchmark-manifest --junit-file .runs/geoai-benchmarks.xml
+python3 -m gis_agent_harness.cli method-review \
+  --analysis-json '{"method":"ordinary least squares on polygons","crs":"EPSG:4326"}'
+python3 -m gis_agent_harness.cli explain-exception "GEOSException: TopologyException: Self-intersection"
 python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
@@ -153,6 +179,20 @@ By default, large vector schemas are truncated to keep the context packet small;
 `qgis-run` accepts a QGIS algorithm id plus a JSON object and defaults to `--dry-run`, returning the `qgis_process run <algorithm> -` request and stdin payload that would be made. Use `--execute` only when QGIS is installed locally and you want the harness to call `qgis_process`.
 
 Live `qgis_process` execution is gated by an explicit local approval checkpoint. The command returns a risk summary with payload size, parameter count, and detected input paths; add `--confirm` after review to allow execution. Set `GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM=false` only if you intentionally want to disable this local guardrail.
+
+## Advanced GeoAI Manifests
+
+The architecture blueprint features are exposed as deterministic local contracts first:
+
+- `mcp-tools` returns a progressive-disclosure MCP-style tool catalog for vector, raster, discovery, and desktop domains.
+- `align-params` performs last-attempt alignment for common CRS, bbox, and numeric parameter formats before tool execution.
+- `capture-artifact` and `judge-map` record map images with hashes/thumbnails and produce local review findings for missing layers or legends.
+- `stac-plan`, `faas-manifest`, `qgis-plugin-manifest`, and `cog-viewer` create dry-run manifests for data discovery, serverless compute, QGIS desktop bridging, and browser-side COG review.
+- `route-resource` classifies generated scripts into CPU/GPU container tracks from imports such as `torch`, `cupy`, or `rasterio`.
+- `benchmark-manifest` emits GeoAgentBench, GeoBenchX, and GIS-Bench task manifests and optional JUnit XML for CI.
+- `method-review` and `explain-exception` provide adversarial methodology checks and GIS-specific exception repair guidance.
+
+These commands do not deploy cloud infrastructure, start a web server, or call external APIs by default.
 
 ## Declarative Plans And Review Gates
 
@@ -242,6 +282,7 @@ The repository is considered complete when:
 - `python3 scripts/demo_recovery.py` completes a failed-run discovery -> export -> replay recovery loop
 - `python3 scripts/demo_readme_workflow.py` proves the documented local CLI and goal workflow is copyable
 - `python3 scripts/verify_acceptance.py` reports all acceptance items and stop conditions as satisfied
+- `pytest -q tests/test_advanced_geoai.py` passes for MCP, PEA alignment, visual review, STAC/FaaS/QGIS/COG manifests, benchmarks, adversarial review, and exception parsing
 - `Dockerfile` builds a local CLI image without adding any external service dependency
 - `.github/workflows/ci.yml` keeps the offline suite, smoke scripts, and package build wired into CI
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` stay in sync with the current commands and constraints

@@ -12,9 +12,11 @@
 ## Core Runtime
 
 - `agent_loop.py`: minimal ReAct loop with repeated-error detection
+- `execution_plan.py`: declarative YAML/Markdown plan loader for template defaults and action constraints
 - `task_templates.py`: YAML template loader and `AgentTask` renderer
 - `goal_runner.py`: `GoalSpec -> AgentTask -> AgentLoop` execution bridge
 - `llm_router.py`: retry and fallback bookkeeping for repair planning
+- `review.py`: reviewer gate that scores and approves/rejects repair plans before sandbox execution
 - `llm_adapters.py`: mock, LiteLLM, OpenAI-compatible, and Anthropic-facing completion adapters
 - `auth_config.py`: provider profile loading, env/YAML merge helpers, and `config doctor`
 - `config.py`: environment-backed runtime settings, sandbox, and telemetry defaults
@@ -29,7 +31,7 @@
 - `sandbox.py`: subprocess wrapper with timeout, failed-script capture, output-path policy, and risk preview
 - `state_store.py`: append-only Markdown and JSONL state snapshots
 - `state_hooks.py`: snapshot hook protocol plus callback/in-memory helpers
-- `telemetry.py`: local JSONL telemetry with simple secret redaction
+- `telemetry.py`: local JSONL telemetry with simple secret redaction plus event-journal helpers
 
 ## Templates
 
@@ -44,18 +46,20 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 ## Flow
 
 1. CLI or TUI resolves runtime config from env and optional profile data.
-2. A user either creates an `AgentTask` directly or renders one from a goal template.
+2. A user either creates an `AgentTask` directly or renders one from a goal template or execution plan.
 3. `AgentLoop` inspects current inputs.
 4. `guardrails.preflight_dataset_checks()` emits structured observations.
 5. `LLMRouter` calls the configured adapter to produce a repair plan and Python script.
-6. `SandboxRunner` validates the script AST, applies the output-path policy, then executes it with timeout.
-7. `StateStore` appends each stage into `AGENT_STATE.md` and `.runs/state.jsonl`.
-8. Optional hooks mirror snapshots into local telemetry and the TUI.
-9. Recovery commands and the TUI replay view use the recorded task and failure artifacts to reconstruct the next run.
+6. `review.py` scores the decision against current observations and any plan allowlist, then either approves it, requests replanning, or escalates a failure.
+7. `SandboxRunner` validates the script AST, applies the output-path policy, then executes it with timeout.
+8. `StateStore` appends each stage into `AGENT_STATE.md` and `.runs/state.jsonl`.
+9. Optional hooks mirror snapshots and explicit event types into local telemetry and the TUI.
+10. Recovery commands and the TUI replay view use the recorded task and failure artifacts to reconstruct the next run.
 
 ## Spatial ACI
 
 - `spatial-map` gives the model an Aider-style map for GIS data: dataset kind, driver, CRS, bounds, geometry type, feature count, schema, and raster dimensions without raw geometry dumps.
+- `spatial-map --dataset` is the progressive-disclosure path: fetch full detail for one dataset only after the compressed repo map identifies it as relevant.
 - `qgis-run` provides a deterministic QGIS command surface: the agent emits JSON and the harness previews or executes `qgis_process run <algorithm> -` with that payload on stdin.
 - `adoption-report` records source hashes, CRS transformations, action lineage, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
 
@@ -66,6 +70,7 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 - `show-failure-files`: failed log/script locator for local debugging
 - `show-replay`: suggested rerun command built from stored task context
 - `adoption-report`: structured per-run audit and context handoff report
+- `show-telemetry`: event-journal summary or raw event stream for one run
 - `show-report`: local report-bundle reader for exported recovery snapshots
 - `replay-last`: execute a new run from the latest failed task context with optional overrides
 

@@ -58,6 +58,25 @@ def main() -> None:
 
     workspace_root.mkdir(parents=True, exist_ok=True)
     fixtures = generate_sample_data(fixture_dir)
+    plan_dir = workspace_root / "plans"
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    declare_plan = plan_dir / "declare_source_crs.yaml"
+    declare_plan.write_text(
+        "\n".join(
+            [
+                "name: README plan",
+                "template_id: declare_source_crs",
+                "inputs:",
+                f"  vector: {fixtures['missing_crs']}",
+                "  source_crs: EPSG:4326",
+                "constraints:",
+                "  max_iterations: 2",
+                "  allowed_actions:",
+                "    - set_crs",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(SRC)
@@ -107,7 +126,27 @@ def main() -> None:
             env=env,
         )[1]
     )
+    goal_plan_run = parse_json_output(
+        run_cli(
+            [
+                "goal",
+                "run",
+                "--plan-file",
+                str(declare_plan),
+                "--mock",
+            ],
+            cwd=workspace_root,
+            env=env,
+        )[1]
+    )
     config_doctor = parse_json_output(run_cli(["config", "doctor"], cwd=workspace_root, env=env)[1])
+    spatial_map_detail = parse_json_output(
+        run_cli(
+            ["spatial-map", str(fixture_dir), "--dataset", "vector/sample.gpkg"],
+            cwd=workspace_root,
+            env=env,
+        )[1]
+    )
 
     failed_run = parse_json_output(
         run_cli(
@@ -221,18 +260,37 @@ def main() -> None:
             env=env,
         )[1]
     )
+    telemetry_summary = parse_json_output(
+        run_cli(
+            ["show-telemetry", "--run-root", str(run_root), "--run-id", goal_plan_run["run_id"], "--summary"],
+            cwd=workspace_root,
+            env=env,
+        )[1]
+    )
 
     payload = {
         "help_has_core_commands": all(
             name in help_stdout
-            for name in ["inspect-vector", "inspect-raster", "run-task", "show-state", "templates", "goal", "config", "tui"]
+            for name in [
+                "inspect-vector",
+                "inspect-raster",
+                "run-task",
+                "show-state",
+                "show-telemetry",
+                "templates",
+                "goal",
+                "config",
+                "tui",
+            ]
         ),
         "inspect_vector": inspect_vector,
         "inspect_raster": inspect_raster,
         "templates_list": templates_list,
         "goal_dry_run": goal_dry_run,
         "goal_run": goal_run,
+        "goal_plan_run": goal_plan_run,
         "config_doctor": config_doctor,
+        "spatial_map_detail": spatial_map_detail,
         "failed_run": failed_run,
         "succeeded_run": succeeded_run,
         "show_state_count": len(show_state_json),
@@ -257,6 +315,7 @@ def main() -> None:
         "targeted_replay_text": targeted_replay_text,
         "replay_dry_run": replay_dry_run,
         "replay_confirm": replay_confirm,
+        "telemetry_summary": telemetry_summary,
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 

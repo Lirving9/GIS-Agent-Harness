@@ -304,14 +304,32 @@ def inspect_raster_command(path: Path) -> None:
 @main.command("spatial-map")
 @click.argument("root", type=click.Path(path_type=Path), default=Path("."))
 @click.option("--max-datasets", default=50, show_default=True, type=int)
+@click.option("--max-schema-fields", default=12, show_default=True, type=int)
 @click.option("--exclude-dir", multiple=True, help="Additional directory name to skip while scanning.")
+@click.option("--dataset", "dataset_path", type=click.Path(path_type=Path), default=None, help="Return detail for one dataset relative to the root.")
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the map JSON.")
-def spatial_map_command(root: Path, max_datasets: int, exclude_dir: tuple[str, ...], output_file: Path | None) -> None:
+def spatial_map_command(
+    root: Path,
+    max_datasets: int,
+    max_schema_fields: int,
+    exclude_dir: tuple[str, ...],
+    dataset_path: Path | None,
+    output_file: Path | None,
+) -> None:
     """Build a compressed spatial repo map without reading full geometries."""
-    from .spatial_context import build_spatial_repo_map
+    from .spatial_context import build_spatial_repo_map, describe_spatial_dataset
 
     try:
-        result = build_spatial_repo_map(root, max_datasets=max_datasets, exclude_dirs=set(exclude_dir))
+        result = (
+            describe_spatial_dataset(root, dataset_path)
+            if dataset_path is not None
+            else build_spatial_repo_map(
+                root,
+                max_datasets=max_datasets,
+                max_schema_fields=max_schema_fields,
+                exclude_dirs=set(exclude_dir),
+            )
+        )
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc
     _dump(result.to_dict(), output_file=output_file)
@@ -426,7 +444,8 @@ def goal_group() -> None:
 
 
 @goal_group.command("run")
-@click.option("--template", "template_id", required=True, help="Built-in goal template id.")
+@click.option("--template", "template_id", required=False, default=None, help="Built-in goal template id.")
+@click.option("--plan-file", type=click.Path(path_type=Path), default=None, help="Optional YAML/Markdown execution plan.")
 @click.option("--vector", type=click.Path(path_type=Path), default=None)
 @click.option("--raster", type=click.Path(path_type=Path), default=None)
 @click.option("--source-crs", default=None)
@@ -437,7 +456,8 @@ def goal_group() -> None:
 @click.option("--run-root", type=click.Path(path_type=Path), default=None)
 @click.option("--state-file", type=click.Path(path_type=Path), default=None)
 def goal_run_command(
-    template_id: str,
+    template_id: str | None,
+    plan_file: Path | None,
     vector: Path | None,
     raster: Path | None,
     source_crs: str | None,
@@ -470,6 +490,7 @@ def goal_run_command(
         use_mock=use_mock,
         run_root=run_root,
         state_file=state_file,
+        plan_file=plan_file,
     )
     runner = GoalRunner(config)
     try:
@@ -554,6 +575,31 @@ def show_state_command(
         _emit_text(_render_state_table(rows), output_file=output_file)
         return
     _emit_text(_render_json(rows), output_file=output_file)
+
+
+@main.command("show-telemetry")
+@click.option("--run-root", type=click.Path(path_type=Path), default=None)
+@click.option("--run-id", default=None, help="Filter telemetry events to a specific run id.")
+@click.option("--event-type", default=None, help="Filter telemetry events to a specific event type.")
+@click.option("--summary", is_flag=True, help="Render aggregated event counts instead of raw events.")
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered output.")
+def show_telemetry_command(
+    run_root: Path | None,
+    run_id: str | None,
+    event_type: str | None,
+    summary: bool,
+    output_file: Path | None,
+) -> None:
+    """Show the local telemetry event journal."""
+    from .telemetry import load_telemetry_events, summarize_telemetry
+
+    config = _load_runtime_config(run_root=run_root)
+    payload = (
+        summarize_telemetry(config.telemetry_file, run_id=run_id, event_type=event_type)
+        if summary
+        else load_telemetry_events(config.telemetry_file, run_id=run_id, event_type=event_type)
+    )
+    _dump(payload, output_file=output_file)
 
 
 @main.command("list-runs")

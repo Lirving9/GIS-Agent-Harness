@@ -8,6 +8,7 @@ python3 scripts/generate_sample_data.py --output-dir .local-fixtures
 python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli spatial-map tests/fixtures
+python3 -m gis_agent_harness.cli spatial-map tests/fixtures --dataset vector/sample.gpkg
 python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --dry-run
@@ -26,6 +27,9 @@ python3 -m gis_agent_harness.cli goal run \
   --vector tests/fixtures/vector/missing_crs.shp \
   --source-crs EPSG:4326 \
   --dry-run
+python3 -m gis_agent_harness.cli goal run \
+  --plan-file plans/declare_source_crs.yaml \
+  --mock
 python3 -m gis_agent_harness.cli config doctor
 python3 -m gis_agent_harness.cli tui
 python3 -m gis_agent_harness.cli run-task \
@@ -34,6 +38,7 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state --limit 3
 python3 -m gis_agent_harness.cli show-state --format table
+python3 -m gis_agent_harness.cli show-telemetry --summary
 python3 -m gis_agent_harness.cli list-runs --failed-only
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
@@ -94,7 +99,7 @@ When this flag is enabled, `qgis-run --execute` returns a structured risk summar
 
 - `AGENT_STATE.md`: human-readable append-only log
 - `.runs/state.jsonl`: machine-readable append-only snapshots
-- `.runs/telemetry.jsonl`: local telemetry mirror of snapshots
+- `.runs/telemetry.jsonl`: local telemetry event journal including `state_snapshot`, `task_context`, `decision_review`, and `sandbox_execution`
 - `.runs/logs/<run_id>/`: per-step scripts and sandbox results
 - `.runs/failed/`: copies of blocked or failed scripts
 - `qgis-run --execute`: requires explicit `--confirm` by default and emits a risk summary before execution
@@ -103,6 +108,7 @@ When this flag is enabled, `qgis-run --execute` returns a structured risk summar
 - `resume-hint`: latest failed-run summary with task context and next-step hint
 - `show-failure-files`: latest failed-run log/script paths for direct inspection
 - `show-replay`: suggested rerun command for the latest failed run
+- `show-telemetry --summary`: compact event counts for one run or the whole journal
 - `adoption-report`: source hashes, CRS transformations, action history, dataset lineage, qgis_process payloads, and omitted-step reasons
 - `export-report`: one-shot report bundle with state, summary, failure-file, replay, adoption outputs, and an index file
 - `show-report`: reopen an exported report bundle from `reports/`
@@ -115,6 +121,7 @@ When this flag is enabled, `qgis-run --execute` returns a structured risk summar
 - missing CRS: declare the source CRS with `set_crs(...)`
 - CRS mismatch: reproject with `to_crs(...)`
 - invalid geometry: repair with `make_valid()`
+- reviewer rejection: inspect the `review` stage or `show-telemetry --summary` output to see whether the plan violated the current observations or the action allowlist
 - AST block: remove unsafe imports or dangerous calls
 - output-path block: keep generated artifacts under `.runs/artifacts`
 - timeout: inspect `.runs/logs/<run_id>/` and tighten the generated script

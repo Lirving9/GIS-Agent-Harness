@@ -4,14 +4,17 @@ GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It
 
 - Click CLI commands for vector and raster inspection
 - goal templates that compile into the existing `AgentTask` loop
+- declarative YAML/Markdown execution plans that can supply template defaults and action constraints
 - a Textual TUI for template-driven runs, monitoring, and recovery
 - a mock-first LiteLLM routing layer with profile-based provider config
 - CRS, geometry, and AST guardrails before execution
+- a reviewer gate that scores proposed repairs before sandbox execution and can force replanning
 - compressed spatial repo maps for vector/raster metadata without dumping full geometries
+- progressive spatial detail lookup for one dataset plus explicit schema truncation markers
 - JSON-first `qgis_process` request previews for deterministic QGIS CLI execution
 - explicit local approval checkpoints before live `qgis_process` execution
 - sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
-- append-only state snapshots plus local telemetry, lineage-rich adoption reports, and recovery audit bundles
+- append-only state snapshots plus local telemetry event journals, lineage-rich adoption reports, and recovery audit bundles
 
 ## Scope
 
@@ -64,6 +67,9 @@ python3 -m gis_agent_harness.cli goal run \
   --vector tests/fixtures/vector/missing_crs.shp \
   --source-crs EPSG:4326 \
   --dry-run
+python3 -m gis_agent_harness.cli goal run \
+  --plan-file plans/declare_source_crs.yaml \
+  --mock
 python3 -m gis_agent_harness.cli config doctor
 python3 -m gis_agent_harness.cli tui
 ```
@@ -76,6 +82,8 @@ Built-in templates:
 
 `goal run` renders a template into the existing `AgentTask` model, then executes the existing `AgentLoop`. `--dry-run` prints the rendered task and template metadata without executing anything.
 
+If you need stronger task alignment, pass `--plan-file` with a YAML file or a Markdown file that starts with YAML frontmatter. The execution plan can provide the template id, default inputs, retry budget, and an allowlist of repair actions.
+
 ## Core CLI
 
 ```bash
@@ -83,6 +91,7 @@ python3 -m gis_agent_harness.cli --help
 python3 -m gis_agent_harness.cli inspect-vector tests/fixtures/vector/sample.gpkg
 python3 -m gis_agent_harness.cli inspect-raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli spatial-map tests/fixtures
+python3 -m gis_agent_harness.cli spatial-map tests/fixtures --dataset vector/sample.gpkg
 python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --payload-json '{"inputs":{"INPUT":"data/urban_roads.shp","DISTANCE":500}}' \
   --dry-run
@@ -96,6 +105,7 @@ python3 -m gis_agent_harness.cli run-task \
   --raster tests/fixtures/raster/sample.tif
 python3 -m gis_agent_harness.cli show-state
 python3 -m gis_agent_harness.cli show-state --format table
+python3 -m gis_agent_harness.cli show-telemetry --summary
 python3 -m gis_agent_harness.cli list-runs --failed-only
 python3 -m gis_agent_harness.cli list-runs --status failed --stage stop --contains geometry
 python3 -m gis_agent_harness.cli resume-hint
@@ -138,9 +148,22 @@ GIS_AGENT_HARNESS_API_KEY=your-key
 
 `spatial-map` builds a compact metadata map for local spatial datasets. It records format, CRS, bounds, geometry type, feature counts, attribute schema, and raster shape without loading full coordinate arrays into model context.
 
+By default, large vector schemas are truncated to keep the context packet small; the payload records `schema_field_count` plus `schema_truncated` so the model knows more detail exists. Use `spatial-map ROOT --dataset relative/path.gpkg` to fetch the full detail for one dataset on demand.
+
 `qgis-run` accepts a QGIS algorithm id plus a JSON object and defaults to `--dry-run`, returning the `qgis_process run <algorithm> -` request and stdin payload that would be made. Use `--execute` only when QGIS is installed locally and you want the harness to call `qgis_process`.
 
 Live `qgis_process` execution is gated by an explicit local approval checkpoint. The command returns a risk summary with payload size, parameter count, and detected input paths; add `--confirm` after review to allow execution. Set `GIS_AGENT_HARNESS_QGIS_REQUIRE_CONFIRM=false` only if you intentionally want to disable this local guardrail.
+
+## Declarative Plans And Review Gates
+
+Execution plans let you pin task intent outside the raw prompt. A plan can provide:
+
+- the template id to render
+- default input paths and CRS declarations
+- a retry budget
+- an allowlist of repair actions that the reviewer will enforce
+
+Before any generated Python reaches the sandbox, the reviewer scores the decision on action fit, provenance, safety, and clarity. If the plan violates the current observations or the declared action policy, the harness records a `review` stage and asks the router to replan.
 
 ## Tests
 
@@ -202,6 +225,8 @@ This removes local runtime directories such as `.demo-runs/`, `.pytest-smoke/`, 
 ## Local Reports
 
 State and recovery inspection commands support `--output-file` so the same local diagnostics can be written to review files before you create a Git checkpoint.
+
+Use `show-telemetry` to inspect the event journal directly. `--summary` returns compact event counts per run, which is useful when you want a control-plane style view of review rejections, sandbox runs, and final outcomes without reopening the full state log.
 
 Use `adoption-report` for a structured handoff with source hashes, CRS transformations, action history, derived-data lineage, qgis_process payloads, and omitted-step reasons.
 

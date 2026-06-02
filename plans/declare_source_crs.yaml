@@ -1,0 +1,14 @@
+name: README declare_source_crs plan
+template_id: declare_source_crs
+inputs:
+  vector: tests/fixtures/vector/missing_crs.shp
+  source_crs: EPSG:4326
+constraints:
+  max_iterations: 2
+  allowed_actions:
+    - set_crs
+steps:
+  - id: inspect
+    objective: Inspect the vector metadata and confirm the CRS is missing.
+  - id: declare
+    objective: Declare the missing source CRS before any downstream analysis.

@@ -37,9 +37,11 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/config.py",
     "src/gis_agent_harness/auth_config.py",
     "src/gis_agent_harness/goal_runner.py",
+    "src/gis_agent_harness/execution_plan.py",
     "src/gis_agent_harness/task_templates.py",
     "src/gis_agent_harness/llm_adapters.py",
     "src/gis_agent_harness/llm_router.py",
+    "src/gis_agent_harness/review.py",
     "src/gis_agent_harness/qgis_process.py",
     "src/gis_agent_harness/spatial_context.py",
     "src/gis_agent_harness/spatial_tools.py",
@@ -59,6 +61,7 @@ REQUIRED_PATHS = [
     "goals/align_vector_to_raster.yaml",
     "goals/declare_source_crs.yaml",
     "goals/repair_invalid_geometry.yaml",
+    "plans/declare_source_crs.yaml",
     "tests/conftest.py",
     "tests/test_cli.py",
     "tests/test_spatial_tools.py",
@@ -67,7 +70,11 @@ REQUIRED_PATHS = [
     "tests/test_e2e_smoke.py",
     "tests/test_templates.py",
     "tests/test_goal_cli.py",
+    "tests/test_execution_plan.py",
     "tests/test_llm_adapters.py",
+    "tests/test_review.py",
+    "tests/test_spatial_context.py",
+    "tests/test_telemetry.py",
     "tests/test_tui_smoke.py",
 ]
 
@@ -219,6 +226,7 @@ def main() -> None:
             readme_payload["goal_dry_run"]["task"]["template_id"] == "declare_source_crs"
             and readme_payload["goal_run"]["status"] == "succeeded"
         )
+        plan_run_ok = readme_payload["goal_plan_run"]["status"] == "succeeded"
         config_doctor_ok = readme_payload["config_doctor"]["status"] == "ok"
         packaging_ok = all((ROOT / path).exists() for path in ["Dockerfile", ".dockerignore", ".github/workflows/ci.yml"])
         state_persistence_ok = all(
@@ -230,12 +238,20 @@ def main() -> None:
             and any(item["kind"] == "vector" and item.get("crs") for item in spatial_map_payload["datasets"])
             and any(item["kind"] == "raster" and item.get("raster", {}).get("band_count") for item in spatial_map_payload["datasets"])
         )
+        progressive_context_ok = (
+            readme_payload["spatial_map_detail"]["kind"] == "vector"
+            and readme_payload["spatial_map_detail"]["feature_count"] is not None
+        )
         qgis_json_ok = (
             qgis_payload["success"] is True
             and qgis_payload["dry_run"] is True
             and qgis_payload["algorithm"] == "native:buffer"
             and qgis_payload["parameters"]["inputs"]["DISTANCE"] == 500
             and qgis_payload["risk"]["payload_bytes"] > 0
+        )
+        telemetry_ok = (
+            readme_payload["telemetry_summary"]["event_counts"].get("decision_review", 0) >= 1
+            and readme_payload["telemetry_summary"]["event_counts"].get("sandbox_execution", 0) >= 1
         )
         adoption_report_ok = (
             adoption_payload["run_id"] == first_readme_run
@@ -260,12 +276,15 @@ def main() -> None:
             "raster_probe": raster_probe_ok,
             "goal_templates": goal_templates_ok,
             "goal_run": goal_run_ok,
+            "goal_plan_run": plan_run_ok,
             "config_doctor": config_doctor_ok,
             "crs_guardrails": crs_guardrails_ok,
             "safe_execution": sandbox_ok,
             "self_heal_loop": self_heal_ok,
             "spatial_context_map": spatial_context_ok,
+            "progressive_context_map": progressive_context_ok,
             "qgis_json_dry_run": qgis_json_ok,
+            "telemetry_events": telemetry_ok,
             "adoption_report": adoption_report_ok,
             "state_persistence": state_persistence_ok,
             "packaging_ready": packaging_ok,

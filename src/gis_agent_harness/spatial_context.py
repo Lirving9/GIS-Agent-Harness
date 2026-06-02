@@ -31,6 +31,8 @@ class SpatialDatasetSummary:
     geometry_type: str | None = None
     feature_count: int | None = None
     schema: dict[str, Any] = field(default_factory=dict)
+    schema_field_count: int | None = None
+    schema_truncated: bool = False
     raster: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
@@ -77,10 +79,22 @@ def _relative(path: Path, root: Path) -> str:
         return str(path)
 
 
-def _summarize_vector(path: Path, root: Path) -> SpatialDatasetSummary:
+def _truncate_schema(schema: dict[str, Any], *, max_schema_fields: int | None) -> tuple[dict[str, Any], int, bool]:
+    items = list(schema.items())
+    field_count = len(items)
+    if max_schema_fields is None or field_count <= max_schema_fields:
+        return dict(items), field_count, False
+    return dict(items[:max_schema_fields]), field_count, True
+
+
+def _summarize_vector(path: Path, root: Path, *, max_schema_fields: int | None = None) -> SpatialDatasetSummary:
     try:
         info = inspect_vector(path, sample_size=0)
         schema = dict(info.schema or {})
+        properties, field_count, schema_truncated = _truncate_schema(
+            dict(schema.get("properties") or {}),
+            max_schema_fields=max_schema_fields,
+        )
         return SpatialDatasetSummary(
             path=_relative(path, root),
             kind="vector",
@@ -89,7 +103,9 @@ def _summarize_vector(path: Path, root: Path) -> SpatialDatasetSummary:
             bounds=info.bounds,
             geometry_type=schema.get("geometry"),
             feature_count=info.feature_count,
-            schema=dict(schema.get("properties") or {}),
+            schema=properties,
+            schema_field_count=field_count,
+            schema_truncated=schema_truncated,
         )
     except Exception as exc:
         return SpatialDatasetSummary(path=_relative(path, root), kind="vector", error=str(exc))
@@ -122,6 +138,7 @@ def build_spatial_repo_map(
     root: str | Path,
     *,
     max_datasets: int = 50,
+    max_schema_fields: int | None = 12,
     exclude_dirs: set[str] | None = None,
 ) -> SpatialRepoMap:
     root_path = Path(root).resolve()
@@ -140,7 +157,7 @@ def build_spatial_repo_map(
     for path in selected_paths:
         suffix = path.suffix.lower()
         if suffix in VECTOR_SUFFIXES:
-            datasets.append(_summarize_vector(path, root_path))
+            datasets.append(_summarize_vector(path, root_path, max_schema_fields=max_schema_fields))
         elif suffix in RASTER_SUFFIXES:
             datasets.append(_summarize_raster(path, root_path))
 
@@ -149,3 +166,24 @@ def build_spatial_repo_map(
         datasets=datasets,
         skipped_count=max(0, len(spatial_paths) - len(selected_paths)),
     )
+
+
+def describe_spatial_dataset(root: str | Path, dataset_path: str | Path) -> SpatialDatasetSummary:
+    root_path = Path(root).resolve()
+    if not root_path.exists():
+        raise FileNotFoundError(f"Spatial map root does not exist: {root_path}")
+    if not root_path.is_dir():
+        raise NotADirectoryError(f"Spatial map root must be a directory: {root_path}")
+
+    candidate = Path(dataset_path)
+    resolved = candidate if candidate.is_absolute() else root_path / candidate
+    resolved = resolved.resolve()
+    if not resolved.exists() or not resolved.is_file():
+        raise FileNotFoundError(f"Spatial dataset does not exist: {resolved}")
+    if not is_spatial_dataset(resolved):
+        raise ValueError(f"Unsupported spatial dataset type: {resolved}")
+
+    suffix = resolved.suffix.lower()
+    if suffix in VECTOR_SUFFIXES:
+        return _summarize_vector(resolved, root_path, max_schema_fields=None)
+    return _summarize_raster(resolved, root_path)

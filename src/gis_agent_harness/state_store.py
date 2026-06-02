@@ -80,6 +80,12 @@ class StateStore:
         for hook in self.hooks:
             hook.handle_snapshot(snapshot)
 
+    def emit_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        for hook in self.hooks:
+            emitter = getattr(hook, "emit_event", None)
+            if callable(emitter):
+                emitter(event_type, payload)
+
     def _load_rows(self) -> list[dict[str, Any]]:
         if not self.state_jsonl.exists():
             return []

@@ -387,6 +387,25 @@ def mcp_tools_command(domain: str | None) -> None:
     _dump(build_mcp_manifest(domain=domain).to_dict())
 
 
+@main.command("mcp-call")
+@click.argument("tool_name")
+@click.option("--params-json", default="{}", show_default=True, help="Tool parameters JSON object.")
+def mcp_call_command(tool_name: str, params_json: str) -> None:
+    """Call a local MCP-style tool through the harness dispatcher."""
+    from .mcp_runtime import call_mcp_tool
+
+    try:
+        payload = json.loads(params_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid --params-json: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise click.ClickException("--params-json must decode to a JSON object.")
+    result = call_mcp_tool(tool_name, payload)
+    _dump(result.to_dict())
+    if not result.success:
+        raise click.exceptions.Exit(1)
+
+
 @main.command("align-params")
 @click.option("--params-json", required=True, help="Inline JSON object of spatial tool parameters.")
 def align_params_command(params_json: str) -> None:
@@ -487,6 +506,22 @@ def route_resource_command(script_file: Path | None, script_text: str | None) ->
     _dump(route_code(text).to_dict())
 
 
+@main.command("compact-failures")
+@click.option("--history-json", required=True, help="JSON array of previous action attempts.")
+@click.option("--max-repeats", default=3, show_default=True, type=int)
+def compact_failures_command(history_json: str, max_repeats: int) -> None:
+    """Detect repeated failed actions and render a compact replanning warning."""
+    from .context_compaction import compact_failure_history
+
+    try:
+        history = json.loads(history_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid --history-json: {exc}") from exc
+    if not isinstance(history, list) or not all(isinstance(item, dict) for item in history):
+        raise click.ClickException("--history-json must decode to an array of objects.")
+    _dump(compact_failure_history(history, max_repeats=max_repeats).to_dict())
+
+
 @main.command("faas-manifest")
 @click.option("--function-name", required=True)
 @click.option("--image", required=True)
@@ -558,6 +593,17 @@ def benchmark_manifest_command(junit_file: Path | None) -> None:
     _dump({**manifest, "junit_file": str(junit_file) if junit_file is not None else None})
 
 
+@main.command("benchmark-run")
+def benchmark_run_command() -> None:
+    """Run local benchmark-manifest sanity checks."""
+    from .benchmarking import run_benchmark_checks
+
+    payload = run_benchmark_checks()
+    _dump(payload)
+    if payload["status"] != "succeeded":
+        raise click.exceptions.Exit(1)
+
+
 @main.command("method-review")
 @click.option("--analysis-json", required=True, help="JSON object describing the spatial method.")
 @click.option("--max-rounds", default=4, show_default=True, type=int)
@@ -581,6 +627,30 @@ def explain_exception_command(message: str) -> None:
     from .geo_exception_parser import explain_geospatial_exception
 
     _dump(explain_geospatial_exception(message).to_dict())
+
+
+@main.command("requirement-matrix")
+def requirement_matrix_command() -> None:
+    """Render blueprint requirement implementation evidence."""
+    from .requirement_matrix import build_requirement_matrix
+
+    _dump(build_requirement_matrix())
+
+
+@main.command("narrative-report")
+@click.option("--adoption-json-file", type=click.Path(path_type=Path), required=True)
+@click.option("--output-file", type=click.Path(path_type=Path), required=True)
+def narrative_report_command(adoption_json_file: Path, output_file: Path) -> None:
+    """Build a Markdown provenance narrative from an adoption-report JSON file."""
+    from .narrative_report import build_narrative_report
+
+    try:
+        payload = json.loads(adoption_json_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid adoption report JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise click.ClickException("Adoption report JSON must decode to an object.")
+    _dump(build_narrative_report(payload, output_path=output_file))
 
 
 @main.command("run-task")

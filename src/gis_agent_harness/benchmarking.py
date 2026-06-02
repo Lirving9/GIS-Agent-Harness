@@ -55,3 +55,22 @@ def build_benchmark_manifest(tasks: list[BenchmarkTask] | None = None) -> dict[s
         "suites": suites,
         "tasks": [task.to_dict() for task in selected],
     }
+
+
+def run_benchmark_checks(tasks: list[BenchmarkTask] | None = None) -> dict[str, Any]:
+    manifest = build_benchmark_manifest(tasks)
+    checks: list[dict[str, Any]] = []
+    for suite_name, suite_payload in manifest["suites"].items():
+        task_count = int(suite_payload["task_count"])
+        checks.append(
+            {
+                "suite": suite_name,
+                "name": f"{suite_name} manifest task coverage",
+                "passed": task_count > 0,
+                "task_count": task_count,
+            }
+        )
+    return {
+        "status": "succeeded" if all(check["passed"] for check in checks) else "failed",
+        "checks": checks,
+    }

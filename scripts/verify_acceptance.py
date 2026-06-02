@@ -64,6 +64,11 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/adversarial_review.py",
     "src/gis_agent_harness/geo_exception_parser.py",
     "src/gis_agent_harness/pipeline_reporting.py",
+    "src/gis_agent_harness/mcp_runtime.py",
+    "src/gis_agent_harness/dag_runner.py",
+    "src/gis_agent_harness/context_compaction.py",
+    "src/gis_agent_harness/narrative_report.py",
+    "src/gis_agent_harness/requirement_matrix.py",
     "src/gis_agent_harness/tui/__init__.py",
     "src/gis_agent_harness/tui/app.py",
     "src/gis_agent_harness/tui/screens.py",
@@ -90,6 +95,7 @@ REQUIRED_PATHS = [
     "tests/test_telemetry.py",
     "tests/test_tui_smoke.py",
     "tests/test_advanced_geoai.py",
+    "tests/test_blueprint_execution.py",
 ]
 
 
@@ -423,6 +429,84 @@ def main() -> None:
         )
         exception_payload = json.loads(exception_stdout)
 
+        _, mcp_call_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "mcp-call",
+                "inspect-vector",
+                "--params-json",
+                json.dumps({"path": readme_payload["inspect_vector"]["path"], "sample_size": 1}),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        mcp_call_payload = json.loads(mcp_call_stdout)
+
+        _, compact_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "compact-failures",
+                "--history-json",
+                json.dumps(
+                    [
+                        {"action": "gdalwarp", "parameters": {"s_srs": "bad"}, "status": "failed"},
+                        {"action": "gdalwarp", "parameters": {"s_srs": "bad"}, "status": "failed"},
+                        {"action": "gdalwarp", "parameters": {"s_srs": "bad"}, "status": "failed"},
+                    ]
+                ),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        compact_payload = json.loads(compact_stdout)
+
+        _, benchmark_run_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "benchmark-run",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        benchmark_run_payload = json.loads(benchmark_run_stdout)
+
+        _, requirement_matrix_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "requirement-matrix",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        requirement_matrix_payload = json.loads(requirement_matrix_stdout)
+
+        adoption_json_file = advanced_dir / "adoption.json"
+        adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
+        _, narrative_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "narrative-report",
+                "--adoption-json-file",
+                str(adoption_json_file),
+                "--output-file",
+                str(narrative_path),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        narrative_payload = json.loads(narrative_stdout)
+
         cli_help_ok = readme_payload["help_has_core_commands"] is True
         vector_probe_ok = all(
             key in readme_payload["inspect_vector"] for key in ["driver", "crs", "bounds", "schema", "sample_records"]
@@ -530,6 +614,17 @@ def main() -> None:
             and "spatial_autocorrelation" in {item["code"] for item in method_payload["findings"]}
         )
         exception_parser_ok = exception_payload["code"] == "invalid_geometry" and "make_valid" in exception_payload["suggested_fix"]
+        mcp_runtime_ok = mcp_call_payload["success"] is True and mcp_call_payload["payload"]["driver"] == "GPKG"
+        failure_compaction_ok = compact_payload["blocked"] is True and compact_payload["compacted_attempt_count"] == 3
+        runnable_benchmarks_ok = benchmark_run_payload["status"] == "succeeded"
+        requirement_matrix_ok = (
+            requirement_matrix_payload["summary"]["implemented"] == requirement_matrix_payload["summary"]["total"]
+        )
+        narrative_report_ok = (
+            narrative_payload["output_path"] == str(narrative_path)
+            and narrative_path.exists()
+            and "## Source Data" in narrative_path.read_text(encoding="utf-8")
+        )
 
         pytest_result = {"ok": None, "stdout": "", "stderr": ""}
         if not args.skip_pytest:
@@ -568,6 +663,11 @@ def main() -> None:
             "benchmark_pipeline_manifest": benchmark_pipeline_ok,
             "adversarial_method_review": adversarial_review_ok,
             "geospatial_exception_parser": exception_parser_ok,
+            "mcp_runtime_dispatch": mcp_runtime_ok,
+            "failure_context_compaction": failure_compaction_ok,
+            "runnable_benchmark_checks": runnable_benchmarks_ok,
+            "requirement_matrix": requirement_matrix_ok,
+            "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
             "all_acceptance_items": all(acceptance.values()),
@@ -601,8 +701,13 @@ def main() -> None:
                     "qgis_plugin": qgis_plugin_payload,
                     "cog_viewer": cog_payload,
                     "benchmark_manifest": benchmark_payload,
+                    "benchmark_run": benchmark_run_payload,
                     "method_review": method_payload,
                     "exception_parser": exception_payload,
+                    "mcp_call": mcp_call_payload,
+                    "context_compaction": compact_payload,
+                    "requirement_matrix": requirement_matrix_payload,
+                    "narrative_report": narrative_payload,
                 },
                 "recovery_state_file": str(recovery_state_file),
                 "recovery_state_excerpt": recovery_state_text.splitlines()[:16],

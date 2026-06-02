@@ -41,6 +41,11 @@
 - `qgis_plugin.py`: QGIS MCP bridge plugin manifest
 - `cog_viewer.py`: static browser-side COG review page generator
 - `benchmarking.py` / `pipeline_reporting.py`: GeoAgentBench, GeoBenchX, GIS-Bench manifests plus JUnit XML
+- `mcp_runtime.py`: local MCP-style tool dispatcher for executable protocol surfaces
+- `dag_runner.py`: dependency-ordered local DAG execution over MCP tools
+- `context_compaction.py`: repeated-failure summarization with system warnings for replanning
+- `narrative_report.py`: markdown research/provenance report generation from adoption reports
+- `requirement_matrix.py`: blueprint capability audit mapped to implementation evidence
 - `adversarial_review.py`: deterministic methodology review for spatial analysis assumptions
 - `geo_exception_parser.py`: GDAL/GEOS/OGR error translation into repair guidance
 
@@ -74,9 +79,10 @@ Each template renders into the existing `AgentTask` model. The goal layer is int
 - `qgis-run` provides a deterministic QGIS command surface: the agent emits JSON and the harness previews or executes `qgis_process run <algorithm> -` with that payload on stdin.
 - `adoption-report` records source hashes, CRS transformations, action lineage, QGIS payloads, and omitted-step reasons so future sessions can recover context without replaying full logs.
 - `mcp-tools` exposes only relevant tool domains on demand instead of loading the entire tool registry into context.
+- `mcp-call` proves the MCP contract is executable for supported local tools, while `dag_runner.py` gives a deterministic plan-and-react execution path that can order dependent tool calls.
 - `align-params` normalizes common PEA failure modes such as integer EPSG codes, lowercase CRS strings, comma-separated bboxes, and numeric strings.
 - `stac-plan`, `faas-manifest`, `qgis-plugin-manifest`, `cog-viewer`, and `benchmark-manifest` turn cloud/desktop/browser/baseline integrations into local reviewable manifests before any external execution path is considered.
-- `capture-artifact`, `judge-map`, `method-review`, and `explain-exception` add the visual, adversarial, and self-correction loops from the architecture blueprint while remaining offline by default.
+- `capture-artifact`, `judge-map`, `method-review`, `explain-exception`, `compact-failures`, and `narrative-report` add the visual, adversarial, self-correction, and provenance loops from the architecture blueprint while remaining offline by default.
 
 ## Recovery Surface
 

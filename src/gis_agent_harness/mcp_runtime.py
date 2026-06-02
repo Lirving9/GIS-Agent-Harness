@@ -63,7 +63,8 @@ TOOL_HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 
 
 def call_mcp_tool(tool_name: str, parameters: dict[str, Any]) -> MCPToolResult:
-    handler = TOOL_HANDLERS.get(tool_name)
+    normalized_name = tool_name.replace("-", "_")
+    handler = TOOL_HANDLERS.get(normalized_name)
     if handler is None:
         return MCPToolResult(
             tool_name=tool_name,
@@ -72,6 +73,6 @@ def call_mcp_tool(tool_name: str, parameters: dict[str, Any]) -> MCPToolResult:
             error=f"Unknown MCP tool: {tool_name}",
         )
     try:
-        return MCPToolResult(tool_name=tool_name, success=True, payload=handler(parameters))
+        return MCPToolResult(tool_name=normalized_name, success=True, payload=handler(parameters))
     except Exception as exc:
-        return MCPToolResult(tool_name=tool_name, success=False, payload={}, error=str(exc))
+        return MCPToolResult(tool_name=normalized_name, success=False, payload={}, error=str(exc))

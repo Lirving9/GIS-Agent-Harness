@@ -16,6 +16,7 @@ GIS Agent Harness is a local-first Python MVP for guarded GIS task execution. It
 - MCP-style progressive tool manifests and parameter alignment helpers
 - local visual artifact capture plus deterministic map-product review feedback
 - dry-run STAC, FaaS, QGIS plugin, benchmark, COG viewer, and resource-routing manifests
+- local MCP dispatch, DAG execution helpers, repeated-failure context compaction, requirement matrix, and narrative report generation
 - adversarial method review and geospatial exception explanation helpers
 - sandboxed Python execution with timeout, stdout, stderr, failed-script capture, and output-path policy
 - append-only state snapshots plus local telemetry event journals, lineage-rich adoption reports, and recovery audit bundles
@@ -104,6 +105,8 @@ python3 -m gis_agent_harness.cli qgis-run native:buffer \
   --execute \
   --confirm
 python3 -m gis_agent_harness.cli mcp-tools --domain raster
+python3 -m gis_agent_harness.cli mcp-call inspect-vector \
+  --params-json '{"path":"tests/fixtures/vector/sample.gpkg","sample_size":1}'
 python3 -m gis_agent_harness.cli align-params \
   --params-json '{"target_crs":4326,"bbox":"-1,-2,3,4","distance":"500"}'
 python3 -m gis_agent_harness.cli stac-plan \
@@ -122,9 +125,16 @@ python3 -m gis_agent_harness.cli cog-viewer \
   --output-html .runs/cog-viewer.html \
   --cog-url file:///tmp/result.tif
 python3 -m gis_agent_harness.cli benchmark-manifest --junit-file .runs/geoai-benchmarks.xml
+python3 -m gis_agent_harness.cli benchmark-run
 python3 -m gis_agent_harness.cli method-review \
   --analysis-json '{"method":"ordinary least squares on polygons","crs":"EPSG:4326"}'
 python3 -m gis_agent_harness.cli explain-exception "GEOSException: TopologyException: Self-intersection"
+python3 -m gis_agent_harness.cli compact-failures \
+  --history-json '[{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"},{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"},{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"}]'
+python3 -m gis_agent_harness.cli requirement-matrix
+python3 -m gis_agent_harness.cli narrative-report \
+  --adoption-json-file .runs/adoption.json \
+  --output-file .runs/NARRATIVE_REPORT.md
 python3 -m gis_agent_harness.cli run-task \
   --task-summary "Align vector CRS to raster CRS" \
   --vector tests/fixtures/vector/sample_3857.gpkg \
@@ -185,12 +195,16 @@ Live `qgis_process` execution is gated by an explicit local approval checkpoint.
 The architecture blueprint features are exposed as deterministic local contracts first:
 
 - `mcp-tools` returns a progressive-disclosure MCP-style tool catalog for vector, raster, discovery, and desktop domains.
+- `mcp-call` executes supported local MCP tools such as `inspect-vector` and `inspect-raster` through a dispatcher, so the protocol surface is not only declarative.
 - `align-params` performs last-attempt alignment for common CRS, bbox, and numeric parameter formats before tool execution.
 - `capture-artifact` and `judge-map` record map images with hashes/thumbnails and produce local review findings for missing layers or legends.
 - `stac-plan`, `faas-manifest`, `qgis-plugin-manifest`, and `cog-viewer` create dry-run manifests for data discovery, serverless compute, QGIS desktop bridging, and browser-side COG review.
 - `route-resource` classifies generated scripts into CPU/GPU container tracks from imports such as `torch`, `cupy`, or `rasterio`.
-- `benchmark-manifest` emits GeoAgentBench, GeoBenchX, and GIS-Bench task manifests and optional JUnit XML for CI.
+- `benchmark-manifest` emits GeoAgentBench, GeoBenchX, and GIS-Bench task manifests and optional JUnit XML for CI, while `benchmark-run` executes local sanity checks over those suites.
 - `method-review` and `explain-exception` provide adversarial methodology checks and GIS-specific exception repair guidance.
+- `compact-failures` collapses repeated failed actions into a compact replanning warning instead of replaying the same failing history.
+- `requirement-matrix` publishes blueprint-to-implementation coverage evidence.
+- `narrative-report` turns adoption-report JSON into `NARRATIVE_REPORT.md` for provenance and handoff.
 
 These commands do not deploy cloud infrastructure, start a web server, or call external APIs by default.
 
@@ -283,6 +297,7 @@ The repository is considered complete when:
 - `python3 scripts/demo_readme_workflow.py` proves the documented local CLI and goal workflow is copyable
 - `python3 scripts/verify_acceptance.py` reports all acceptance items and stop conditions as satisfied
 - `pytest -q tests/test_advanced_geoai.py` passes for MCP, PEA alignment, visual review, STAC/FaaS/QGIS/COG manifests, benchmarks, adversarial review, and exception parsing
+- `pytest -q tests/test_blueprint_execution.py` passes for MCP dispatch, DAG execution, failure compaction, narrative reporting, runnable benchmarks, and the requirement matrix
 - `Dockerfile` builds a local CLI image without adding any external service dependency
 - `.github/workflows/ci.yml` keeps the offline suite, smoke scripts, and package build wired into CI
 - `README.md`, `docs/architecture.md`, `docs/operations.md`, `AGENTS.md`, and `.codex/config.toml` stay in sync with the current commands and constraints

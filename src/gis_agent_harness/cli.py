@@ -378,6 +378,211 @@ def qgis_run_command(
         raise click.exceptions.Exit(1)
 
 
+@main.command("mcp-tools")
+@click.option("--domain", default=None, help="Optional progressive-disclosure domain filter.")
+def mcp_tools_command(domain: str | None) -> None:
+    """Render the local MCP-style GIS tool manifest."""
+    from .mcp_registry import build_mcp_manifest
+
+    _dump(build_mcp_manifest(domain=domain).to_dict())
+
+
+@main.command("align-params")
+@click.option("--params-json", required=True, help="Inline JSON object of spatial tool parameters.")
+def align_params_command(params_json: str) -> None:
+    """Normalize common CRS, bbox, and numeric GIS parameters before execution."""
+    from .parameter_alignment import align_parameters
+
+    try:
+        payload = json.loads(params_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid --params-json: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise click.ClickException("--params-json must decode to a JSON object.")
+    _dump(align_parameters(payload).to_dict())
+
+
+@main.command("capture-artifact")
+@click.argument("path", type=click.Path(path_type=Path))
+@click.option("--output-dir", type=click.Path(path_type=Path), default=None)
+def capture_artifact_command(path: Path, output_dir: Path | None) -> None:
+    """Capture a map/image artifact with hash and compact base64 thumbnail."""
+    from .visual_artifacts import capture_visual_artifact
+
+    try:
+        artifact = capture_visual_artifact(path, output_dir=output_dir)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    _dump(artifact.to_dict())
+
+
+@main.command("judge-map")
+@click.argument("path", type=click.Path(path_type=Path))
+@click.option("--criteria-json", default="{}", show_default=True, help="Visual review criteria JSON.")
+@click.option("--output-dir", type=click.Path(path_type=Path), default=None)
+def judge_map_command(path: Path, criteria_json: str, output_dir: Path | None) -> None:
+    """Run a deterministic local map-product review over captured artifact metadata."""
+    from .visual_artifacts import capture_visual_artifact
+    from .visual_judge import judge_map_product
+
+    try:
+        criteria = json.loads(criteria_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid --criteria-json: {exc}") from exc
+    if not isinstance(criteria, dict):
+        raise click.ClickException("--criteria-json must decode to a JSON object.")
+    artifact = capture_visual_artifact(path, output_dir=output_dir)
+    _dump(judge_map_product(artifact, criteria).to_dict())
+
+
+def _parse_bbox(value: str) -> list[float]:
+    try:
+        bbox = [float(item.strip()) for item in value.split(",")]
+    except ValueError as exc:
+        raise click.ClickException("--bbox must be four comma-separated numbers.") from exc
+    if len(bbox) != 4:
+        raise click.ClickException("--bbox must contain exactly four comma-separated numbers.")
+    return bbox
+
+
+@main.command("stac-plan")
+@click.option("--collection", "collections", multiple=True, required=True, help="STAC collection id. Repeatable.")
+@click.option("--bbox", required=True, help="minx,miny,maxx,maxy")
+@click.option("--datetime", "datetime_range", required=True, help="STAC datetime range.")
+@click.option("--max-cloud-cover", type=float, default=None)
+@click.option("--endpoint", default="https://planetarycomputer.microsoft.com/api/stac/v1/search", show_default=True)
+def stac_plan_command(
+    collections: tuple[str, ...],
+    bbox: str,
+    datetime_range: str,
+    max_cloud_cover: float | None,
+    endpoint: str,
+) -> None:
+    """Build a local dry-run STAC discovery request."""
+    from .stac_discovery import build_stac_query_plan
+
+    _dump(
+        build_stac_query_plan(
+            collections=list(collections),
+            bbox=_parse_bbox(bbox),
+            datetime_range=datetime_range,
+            max_cloud_cover=max_cloud_cover,
+            endpoint=endpoint,
+        ).to_dict()
+    )
+
+
+@main.command("route-resource")
+@click.option("--script-file", type=click.Path(path_type=Path), default=None)
+@click.option("--script-text", default=None)
+def route_resource_command(script_file: Path | None, script_text: str | None) -> None:
+    """Classify generated code into CPU/GPU container tracks."""
+    from .resource_router import route_code
+
+    if script_file is None and script_text is None:
+        raise click.ClickException("Provide either --script-file or --script-text.")
+    if script_file is not None and script_text is not None:
+        raise click.ClickException("Use either --script-file or --script-text, not both.")
+    text = script_file.read_text(encoding="utf-8") if script_file is not None else str(script_text)
+    _dump(route_code(text).to_dict())
+
+
+@main.command("faas-manifest")
+@click.option("--function-name", required=True)
+@click.option("--image", required=True)
+@click.option("--handler", required=True)
+@click.option("--input-asset", "input_assets", multiple=True)
+@click.option("--script-file", type=click.Path(path_type=Path), default=None)
+@click.option("--script-text", default="")
+def faas_manifest_command(
+    function_name: str,
+    image: str,
+    handler: str,
+    input_assets: tuple[str, ...],
+    script_file: Path | None,
+    script_text: str,
+) -> None:
+    """Render a local-first FaaS deployment manifest without deploying it."""
+    from .faas_planner import build_faas_manifest
+    from .resource_router import route_code
+
+    text = script_file.read_text(encoding="utf-8") if script_file is not None else script_text
+    _dump(
+        build_faas_manifest(
+            function_name=function_name,
+            image=image,
+            handler=handler,
+            input_assets=list(input_assets),
+            resource_route=route_code(text),
+        )
+    )
+
+
+@main.command("qgis-plugin-manifest")
+@click.option("--plugin-name", default="GISAgentMCPBridge", show_default=True)
+def qgis_plugin_manifest_command(plugin_name: str) -> None:
+    """Render the desktop QGIS MCP bridge plugin manifest."""
+    from .qgis_plugin import build_qgis_plugin_manifest
+
+    _dump(build_qgis_plugin_manifest(plugin_name=plugin_name))
+
+
+@main.command("cog-viewer")
+@click.option("--output-html", type=click.Path(path_type=Path), required=True)
+@click.option("--cog-url", required=True)
+@click.option("--title", default="COG Review", show_default=True)
+def cog_viewer_command(output_html: Path, cog_url: str, title: str) -> None:
+    """Create a static browser-side COG review HTML manifest."""
+    from .cog_viewer import build_cog_viewer
+
+    path = build_cog_viewer(output_html=output_html, cog_url=cog_url, title=title)
+    _dump({"output_html": str(path), "exists": path.exists()})
+
+
+@main.command("benchmark-manifest")
+@click.option("--junit-file", type=click.Path(path_type=Path), default=None)
+def benchmark_manifest_command(junit_file: Path | None) -> None:
+    """Render the local GeoAgentBench/GeoBenchX/GIS-Bench manifest."""
+    from .benchmarking import build_benchmark_manifest
+    from .pipeline_reporting import PipelineCheck, render_junit_xml
+
+    manifest = build_benchmark_manifest()
+    checks = [
+        PipelineCheck(name="GeoAgentBench manifest", passed="GeoAgentBench" in manifest["suites"]),
+        PipelineCheck(name="GeoBenchX manifest", passed="GeoBenchX" in manifest["suites"]),
+        PipelineCheck(name="GIS-Bench manifest", passed="GIS-Bench" in manifest["suites"]),
+    ]
+    if junit_file is not None:
+        junit_file.parent.mkdir(parents=True, exist_ok=True)
+        junit_file.write_text(render_junit_xml("geoai-benchmark-manifest", checks), encoding="utf-8")
+    _dump({**manifest, "junit_file": str(junit_file) if junit_file is not None else None})
+
+
+@main.command("method-review")
+@click.option("--analysis-json", required=True, help="JSON object describing the spatial method.")
+@click.option("--max-rounds", default=4, show_default=True, type=int)
+def method_review_command(analysis_json: str, max_rounds: int) -> None:
+    """Run a deterministic adversarial GIS methodology review."""
+    from .adversarial_review import run_method_review
+
+    try:
+        analysis = json.loads(analysis_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"Invalid --analysis-json: {exc}") from exc
+    if not isinstance(analysis, dict):
+        raise click.ClickException("--analysis-json must decode to a JSON object.")
+    _dump(run_method_review(analysis, max_rounds=max_rounds))
+
+
+@main.command("explain-exception")
+@click.argument("message")
+def explain_exception_command(message: str) -> None:
+    """Translate common GDAL/GEOS/OGR failures into repair guidance."""
+    from .geo_exception_parser import explain_geospatial_exception
+
+    _dump(explain_geospatial_exception(message).to_dict())
+
+
 @main.command("run-task")
 @click.option("--task-summary", required=True, help="Short task description.")
 @click.option("--vector", "vector_path", required=True, type=click.Path(path_type=Path))

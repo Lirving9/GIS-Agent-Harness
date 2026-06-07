@@ -132,6 +132,8 @@ python3 -m gis_agent_harness.cli explain-exception "GEOSException: TopologyExcep
 python3 -m gis_agent_harness.cli compact-failures \
   --history-json '[{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"},{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"},{"action":"gdalwarp","parameters":{"s_srs":"bad"},"status":"failed"}]'
 python3 -m gis_agent_harness.cli requirement-matrix
+python3 -m gis_agent_harness.cli health-report
+python3 -m gis_agent_harness.cli health-report --format markdown --category testing
 python3 -m gis_agent_harness.cli narrative-report \
   --adoption-json-file .runs/adoption.json \
   --output-file .runs/NARRATIVE_REPORT.md
@@ -204,6 +206,7 @@ The architecture blueprint features are exposed as deterministic local contracts
 - `method-review` and `explain-exception` provide adversarial methodology checks and GIS-specific exception repair guidance.
 - `compact-failures` collapses repeated failed actions into a compact replanning warning instead of replaying the same failing history.
 - `requirement-matrix` publishes blueprint-to-implementation coverage evidence.
+- `health-report` runs 50+ local project checks across CLI, testing, packaging, documentation, security, operations, and architecture readiness.
 - `narrative-report` turns adoption-report JSON into `NARRATIVE_REPORT.md` for provenance and handoff.
 
 These commands do not deploy cloud infrastructure, start a web server, or call external APIs by default.

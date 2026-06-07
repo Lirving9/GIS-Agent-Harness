@@ -67,6 +67,7 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/mcp_runtime.py",
     "src/gis_agent_harness/dag_runner.py",
     "src/gis_agent_harness/context_compaction.py",
+    "src/gis_agent_harness/health_report.py",
     "src/gis_agent_harness/narrative_report.py",
     "src/gis_agent_harness/requirement_matrix.py",
     "src/gis_agent_harness/tui/__init__.py",
@@ -93,6 +94,7 @@ REQUIRED_PATHS = [
     "tests/test_review.py",
     "tests/test_spatial_context.py",
     "tests/test_telemetry.py",
+    "tests/test_health_report.py",
     "tests/test_tui_smoke.py",
     "tests/test_advanced_geoai.py",
     "tests/test_blueprint_execution.py",
@@ -488,6 +490,20 @@ def main() -> None:
         )
         requirement_matrix_payload = json.loads(requirement_matrix_stdout)
 
+        _, health_report_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "health-report",
+                "--root",
+                str(ROOT),
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        health_report_payload = json.loads(health_report_stdout)
+
         adoption_json_file = advanced_dir / "adoption.json"
         adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
@@ -620,6 +636,10 @@ def main() -> None:
         requirement_matrix_ok = (
             requirement_matrix_payload["summary"]["implemented"] == requirement_matrix_payload["summary"]["total"]
         )
+        health_report_ok = (
+            health_report_payload["check_count"] >= 50
+            and health_report_payload["summary"]["by_status"].get("passed", 0) >= 50
+        )
         narrative_report_ok = (
             narrative_payload["output_path"] == str(narrative_path)
             and narrative_path.exists()
@@ -667,6 +687,7 @@ def main() -> None:
             "failure_context_compaction": failure_compaction_ok,
             "runnable_benchmark_checks": runnable_benchmarks_ok,
             "requirement_matrix": requirement_matrix_ok,
+            "health_report": health_report_ok,
             "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
@@ -707,6 +728,7 @@ def main() -> None:
                     "mcp_call": mcp_call_payload,
                     "context_compaction": compact_payload,
                     "requirement_matrix": requirement_matrix_payload,
+                    "health_report": health_report_payload,
                     "narrative_report": narrative_payload,
                 },
                 "recovery_state_file": str(recovery_state_file),

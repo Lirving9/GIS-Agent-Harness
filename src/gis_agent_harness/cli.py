@@ -637,6 +637,27 @@ def requirement_matrix_command() -> None:
     _dump(build_requirement_matrix())
 
 
+@main.command("health-report")
+@click.option("--root", type=click.Path(path_type=Path), default=Path("."), show_default=True)
+@click.option("--category", default=None, help="Only include checks from one category.")
+@click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered report.")
+def health_report_command(
+    root: Path,
+    category: str | None,
+    output_format: str,
+    output_file: Path | None,
+) -> None:
+    """Render a local project health report with 50+ implementation checks."""
+    from .health_report import build_health_report, render_health_report_markdown
+
+    report = build_health_report(root, category=category)
+    if output_format == "markdown":
+        _emit_text(render_health_report_markdown(report), output_file=output_file)
+        return
+    _dump(report.to_dict(), output_file=output_file)
+
+
 @main.command("narrative-report")
 @click.option("--adoption-json-file", type=click.Path(path_type=Path), required=True)
 @click.option("--output-file", type=click.Path(path_type=Path), required=True)

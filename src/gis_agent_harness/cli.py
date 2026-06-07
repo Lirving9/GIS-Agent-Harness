@@ -658,6 +658,44 @@ def health_report_command(
     _dump(report.to_dict(), output_file=output_file)
 
 
+@main.command("improvement-catalog")
+@click.option("--category", default=None, help="Only include improvement items from one category.")
+@click.option(
+    "--min-priority",
+    type=click.Choice(["low", "medium", "high", "critical"]),
+    default=None,
+    help="Only include items at or above this priority.",
+)
+@click.option("--contains", default=None, help="Case-insensitive text filter over item fields.")
+@click.option("--limit", default=None, type=int, help="Maximum number of items to return after filtering.")
+@click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered catalog.")
+def improvement_catalog_command(
+    category: str | None,
+    min_priority: str | None,
+    contains: str | None,
+    limit: int | None,
+    output_format: str,
+    output_file: Path | None,
+) -> None:
+    """Render the offline GIS harness improvement catalog."""
+    from .improvement_catalog import build_improvement_catalog, render_improvement_catalog_markdown
+
+    try:
+        catalog = build_improvement_catalog(
+            category=category,
+            min_priority=min_priority,
+            contains=contains,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if output_format == "markdown":
+        _emit_text(render_improvement_catalog_markdown(catalog), output_file=output_file)
+        return
+    _dump(catalog.to_dict(), output_file=output_file)
+
+
 @main.command("narrative-report")
 @click.option("--adoption-json-file", type=click.Path(path_type=Path), required=True)
 @click.option("--output-file", type=click.Path(path_type=Path), required=True)

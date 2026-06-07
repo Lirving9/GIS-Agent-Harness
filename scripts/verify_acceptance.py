@@ -68,6 +68,7 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/dag_runner.py",
     "src/gis_agent_harness/context_compaction.py",
     "src/gis_agent_harness/health_report.py",
+    "src/gis_agent_harness/improvement_catalog.py",
     "src/gis_agent_harness/narrative_report.py",
     "src/gis_agent_harness/requirement_matrix.py",
     "src/gis_agent_harness/tui/__init__.py",
@@ -95,6 +96,7 @@ REQUIRED_PATHS = [
     "tests/test_spatial_context.py",
     "tests/test_telemetry.py",
     "tests/test_health_report.py",
+    "tests/test_improvement_catalog.py",
     "tests/test_tui_smoke.py",
     "tests/test_advanced_geoai.py",
     "tests/test_blueprint_execution.py",
@@ -504,6 +506,26 @@ def main() -> None:
         )
         health_report_payload = json.loads(health_report_stdout)
 
+        _, improvement_catalog_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "improvement-catalog",
+                "--category",
+                "cli",
+                "--min-priority",
+                "high",
+                "--contains",
+                "output",
+                "--limit",
+                "10",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        improvement_catalog_payload = json.loads(improvement_catalog_stdout)
+
         adoption_json_file = advanced_dir / "adoption.json"
         adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
@@ -640,6 +662,12 @@ def main() -> None:
             health_report_payload["check_count"] >= 50
             and health_report_payload["summary"]["by_status"].get("passed", 0) >= 50
         )
+        improvement_catalog_ok = (
+            improvement_catalog_payload["total_available"] >= 10
+            and improvement_catalog_payload["returned_count"] == 10
+            and all(item["category"] == "cli" for item in improvement_catalog_payload["items"])
+            and all(item["priority"] in {"critical", "high"} for item in improvement_catalog_payload["items"])
+        )
         narrative_report_ok = (
             narrative_payload["output_path"] == str(narrative_path)
             and narrative_path.exists()
@@ -688,6 +716,7 @@ def main() -> None:
             "runnable_benchmark_checks": runnable_benchmarks_ok,
             "requirement_matrix": requirement_matrix_ok,
             "health_report": health_report_ok,
+            "improvement_catalog": improvement_catalog_ok,
             "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
@@ -729,6 +758,7 @@ def main() -> None:
                     "context_compaction": compact_payload,
                     "requirement_matrix": requirement_matrix_payload,
                     "health_report": health_report_payload,
+                    "improvement_catalog": improvement_catalog_payload,
                     "narrative_report": narrative_payload,
                 },
                 "recovery_state_file": str(recovery_state_file),

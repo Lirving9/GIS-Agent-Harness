@@ -662,21 +662,26 @@ def health_report_command(
 @click.option("--root", type=click.Path(path_type=Path), default=Path("."), show_default=True)
 @click.option("--target-commits", type=click.IntRange(min=0), default=None, help="Optional commit-count target.")
 @click.option("--target-python-lines", type=click.IntRange(min=0), default=None, help="Optional tracked Python line target.")
+@click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered metrics.")
 def project_metrics_command(
     root: Path,
     target_commits: int | None,
     target_python_lines: int | None,
+    output_format: str,
     output_file: Path | None,
 ) -> None:
     """Render local Git and tracked-code metrics for progress audits."""
-    from .project_metrics import build_project_metrics
+    from .project_metrics import build_project_metrics, render_project_metrics_markdown
 
     metrics = build_project_metrics(
         root,
         target_commits=target_commits,
         target_python_lines=target_python_lines,
     )
+    if output_format == "markdown":
+        _emit_text(render_project_metrics_markdown(metrics), output_file=output_file)
+        return
     _dump(metrics.to_dict(), output_file=output_file)
 
 

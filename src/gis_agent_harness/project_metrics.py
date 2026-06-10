@@ -183,6 +183,62 @@ def _build_targets(
     return targets
 
 
+def _markdown_bool(value: object) -> str:
+    return "yes" if value is True else "no" if value is False else ""
+
+
+def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
+    payload = metrics.to_dict()
+    git = payload["git"] if isinstance(payload["git"], dict) else {}
+    line_counts = payload["line_counts"] if isinstance(payload["line_counts"], dict) else {}
+    python_counts = line_counts.get("python", {}) if isinstance(line_counts.get("python"), dict) else {}
+    targets = payload["targets"] if isinstance(payload["targets"], dict) else {}
+
+    lines = [
+        "# GIS Agent Harness Project Metrics",
+        "",
+        "## Repository",
+        f"- Root: {payload['root']}",
+        f"- Branch: {git.get('branch') or ''}",
+        f"- HEAD: {git.get('head') or ''}",
+        f"- Upstream: {git.get('upstream_ref') or ''}",
+        f"- Worktree clean: {_markdown_bool(git.get('worktree_clean'))}",
+        f"- Ahead/behind: {git.get('ahead') if git.get('ahead') is not None else ''}/{git.get('behind') if git.get('behind') is not None else ''}",
+        "",
+        "## Python Lines",
+        "| Bucket | Lines |",
+        "| --- | ---: |",
+    ]
+    for bucket in ("src", "tests", "scripts", "other", "total"):
+        lines.append(f"| {bucket} | {python_counts.get(bucket, 0)} |")
+
+    lines.extend(
+        [
+            "",
+            "## Targets",
+            "| Target | Required | Current | Remaining | Met | Basis |",
+            "| --- | ---: | ---: | ---: | --- | --- |",
+        ]
+    )
+    for target_name, target in targets.items():
+        item = target if isinstance(target, dict) else {}
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(target_name),
+                    str(item.get("required", "")),
+                    str(item.get("current", "")),
+                    str(item.get("remaining", "")),
+                    _markdown_bool(item.get("met")),
+                    str(item.get("basis", "")),
+                ]
+            )
+            + " |"
+        )
+    return "\n".join(lines)
+
+
 def build_project_metrics(
     root: str | Path = Path("."),
     *,

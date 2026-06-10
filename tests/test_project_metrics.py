@@ -201,6 +201,9 @@ def test_project_metrics_markdown_renderer_summarizes_targets(tmp_path: Path) ->
 
     assert markdown.startswith("# GIS Agent Harness Project Metrics")
     assert "- Root:" in markdown
+    assert "- File source: git" in markdown
+    assert "## File Types" in markdown
+    assert "| .py | 3 | 5 |" in markdown
     assert "| Target | Required | Current | Remaining | Met | Basis |" in markdown
     assert "| commits | 2 | 1 | 1 | no | HEAD |" in markdown
     assert "| python_lines | 8 | 5 | 3 | no |  |" in markdown

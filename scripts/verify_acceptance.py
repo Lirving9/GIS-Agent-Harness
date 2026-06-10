@@ -508,6 +508,45 @@ def main() -> None:
         )
         health_report_payload = json.loads(health_report_stdout)
 
+        failed_health_root = advanced_dir / "missing-health-root"
+        failed_health_returncode, failed_health_stdout, failed_health_stderr = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "health-report",
+                "--root",
+                str(failed_health_root),
+                "--fail-on-failed",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+            expect_success=False,
+        )
+        passed_health_returncode, passed_health_stdout, passed_health_stderr = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "health-report",
+                "--root",
+                str(ROOT),
+                "--category",
+                "testing",
+                "--fail-on-failed",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        health_report_strict_gate_payload = {
+            "failed_returncode": failed_health_returncode,
+            "failed_summary": json.loads(failed_health_stdout)["summary"],
+            "failed_stderr": failed_health_stderr,
+            "passed_returncode": passed_health_returncode,
+            "passed_summary": json.loads(passed_health_stdout)["summary"],
+            "passed_stderr": passed_health_stderr,
+        }
+
         _, improvement_catalog_stdout, _ = run_command(
             [
                 sys.executable,
@@ -745,6 +784,12 @@ def main() -> None:
             health_report_payload["check_count"] >= 50
             and health_report_payload["summary"]["by_status"].get("passed", 0) >= 50
         )
+        health_report_strict_gate_ok = (
+            health_report_strict_gate_payload["failed_returncode"] == 1
+            and health_report_strict_gate_payload["failed_summary"]["failed"] > 0
+            and health_report_strict_gate_payload["passed_returncode"] == 0
+            and health_report_strict_gate_payload["passed_summary"]["failed"] == 0
+        )
         improvement_catalog_ok = (
             improvement_catalog_payload["total_available"] >= 10
             and improvement_catalog_payload["returned_count"] == 10
@@ -822,6 +867,7 @@ def main() -> None:
             "runnable_benchmark_checks": runnable_benchmarks_ok,
             "requirement_matrix": requirement_matrix_ok,
             "health_report": health_report_ok,
+            "health_report_strict_gate": health_report_strict_gate_ok,
             "improvement_catalog": improvement_catalog_ok,
             "project_metrics": project_metrics_ok,
             "project_metrics_markdown": project_metrics_markdown_ok,
@@ -850,6 +896,7 @@ def main() -> None:
                 "spatial_map": spatial_map_payload,
                 "qgis_json": qgis_payload,
                 "adoption_report": adoption_payload,
+                "health_report_strict_gate": health_report_strict_gate_payload,
                 "project_metrics": project_metrics_payload,
                 "project_metrics_markdown": project_metrics_markdown,
                 "project_metrics_strict_gate": project_metrics_strict_gate_payload,

@@ -134,6 +134,7 @@ python3 -m gis_agent_harness.cli compact-failures \
 python3 -m gis_agent_harness.cli requirement-matrix
 python3 -m gis_agent_harness.cli health-report
 python3 -m gis_agent_harness.cli health-report --format markdown --category testing
+python3 -m gis_agent_harness.cli health-report --category testing --fail-on-failed
 python3 -m gis_agent_harness.cli improvement-catalog --category cli --min-priority high --contains output --limit 10
 python3 -m gis_agent_harness.cli improvement-catalog --format markdown --category security --limit 10
 python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000

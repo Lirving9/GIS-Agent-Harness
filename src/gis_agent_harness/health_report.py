@@ -342,6 +342,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "Document the project health report command.",
     ),
     _CheckSpec(
+        "readme_health_report_strict_command",
+        "documentation",
+        "README health report strict command",
+        "medium",
+        "README.md",
+        ("health-report", "--fail-on-failed", "--category testing"),
+        "Document the nonzero exit gate for failed project health checks.",
+    ),
+    _CheckSpec(
         "pyproject_python_bounds",
         "packaging",
         "package Python bounds",
@@ -745,6 +754,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "scripts/verify_acceptance.py",
         ("project_metrics_top_files", "top-files", "top_python_files"),
         "Keep the largest-file metrics audit covered by acceptance evidence.",
+    ),
+    _CheckSpec(
+        "acceptance_health_report_strict_gate",
+        "testing",
+        "acceptance health report strict gate",
+        "medium",
+        "scripts/verify_acceptance.py",
+        ("health_report_strict_gate", "fail-on-failed", "failed_returncode"),
+        "Keep the strict health-report gate covered by acceptance evidence.",
     ),
     _CheckSpec(
         "mcp_runtime_dispatch",

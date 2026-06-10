@@ -106,3 +106,12 @@ def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
     assert payload["line_counts"]["python"]["total"] == 5
     assert payload["targets"]["commits"]["remaining"] == 1
     assert payload["targets"]["python_lines"]["remaining"] == 3
+
+
+def test_project_metrics_command_is_in_cli_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(main, ["--help"])
+
+    assert result.exit_code == 0
+    assert "project-metrics" in result.output

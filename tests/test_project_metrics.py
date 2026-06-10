@@ -7,7 +7,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from gis_agent_harness.cli import main
-from gis_agent_harness.project_metrics import build_project_metrics
+from gis_agent_harness.project_metrics import build_project_metrics, render_project_metrics_markdown
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -106,6 +106,45 @@ def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
     assert payload["line_counts"]["python"]["total"] == 5
     assert payload["targets"]["commits"]["remaining"] == 1
     assert payload["targets"]["python_lines"]["remaining"] == 3
+
+
+def test_project_metrics_markdown_renderer_summarizes_targets(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    metrics = build_project_metrics(repo, target_commits=2, target_python_lines=8)
+
+    markdown = render_project_metrics_markdown(metrics)
+
+    assert markdown.startswith("# GIS Agent Harness Project Metrics")
+    assert "- Root:" in markdown
+    assert "| Target | Required | Current | Remaining | Met | Basis |" in markdown
+    assert "| commits | 2 | 1 | 1 | no | HEAD |" in markdown
+    assert "| python_lines | 8 | 5 | 3 | no |  |" in markdown
+    assert "| src | 2 |" in markdown
+    assert "| tests | 2 |" in markdown
+
+
+def test_project_metrics_cli_renders_markdown(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "project-metrics",
+            "--root",
+            str(repo),
+            "--target-commits",
+            "2",
+            "--target-python-lines",
+            "8",
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "# GIS Agent Harness Project Metrics" in result.output
+    assert "| python_lines | 8 | 5 | 3 | no |  |" in result.output
 
 
 def test_project_metrics_command_is_in_cli_help() -> None:

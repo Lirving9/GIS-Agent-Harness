@@ -673,6 +673,7 @@ def health_report_command(
 @click.option("--top-files", type=click.IntRange(min=0), default=10, show_default=True, help="Number of largest tracked Python files to include.")
 @click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
 @click.option("--fail-on-unmet-targets", is_flag=True, help="Exit with status 1 when any configured target is unmet.")
+@click.option("--require-clean", is_flag=True, help="Exit with status 1 when the Git worktree has local changes.")
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered metrics.")
 def project_metrics_command(
     root: Path,
@@ -682,6 +683,7 @@ def project_metrics_command(
     top_files: int,
     output_format: str,
     fail_on_unmet_targets: bool,
+    require_clean: bool,
     output_file: Path | None,
 ) -> None:
     """Render local Git and tracked-code metrics for progress audits."""
@@ -700,13 +702,15 @@ def project_metrics_command(
         isinstance(target, dict) and target.get("met") is False
         for target in (target_values.values() if isinstance(target_values, dict) else [])
     )
+    git_payload = payload.get("git", {})
+    has_dirty_worktree = isinstance(git_payload, dict) and git_payload.get("worktree_clean") is False
     if output_format == "markdown":
         _emit_text(render_project_metrics_markdown(metrics), output_file=output_file)
-        if fail_on_unmet_targets and has_unmet_target:
+        if (fail_on_unmet_targets and has_unmet_target) or (require_clean and has_dirty_worktree):
             raise click.exceptions.Exit(1)
         return
     _dump(payload, output_file=output_file)
-    if fail_on_unmet_targets and has_unmet_target:
+    if (fail_on_unmet_targets and has_unmet_target) or (require_clean and has_dirty_worktree):
         raise click.exceptions.Exit(1)
 
 

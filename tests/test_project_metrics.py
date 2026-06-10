@@ -91,6 +91,29 @@ def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path)
     }
 
 
+def test_project_metrics_counts_python_lines_without_git_repo(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    (source_root / "src" / "pkg").mkdir(parents=True)
+    (source_root / "tests").mkdir()
+    (source_root / "src" / "pkg" / "app.py").write_text("print('src')\n" * 3, encoding="utf-8")
+    (source_root / "tests" / "test_app.py").write_text("print('test')\n" * 2, encoding="utf-8")
+    (source_root / "README.md").write_text("# Source\n", encoding="utf-8")
+
+    metrics = build_project_metrics(source_root, target_python_lines=5)
+    payload = metrics.to_dict()
+
+    assert payload["git"]["is_repository"] is False
+    assert payload["line_counts"]["tracked_files"] == 3
+    assert payload["line_counts"]["python"] == {
+        "src": 3,
+        "tests": 2,
+        "scripts": 0,
+        "other": 0,
+        "total": 5,
+    }
+    assert payload["targets"]["python_lines"]["met"] is True
+
+
 def test_project_metrics_reports_top_tracked_python_files(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     _add_tracked_python_file(repo, "src/pkg/big.py", 4)

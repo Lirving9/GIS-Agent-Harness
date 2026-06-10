@@ -77,9 +77,10 @@ def _python_bucket(relative_path: Path) -> str:
     return "other"
 
 
-def _build_line_counts(root: Path, files: list[Path]) -> dict[str, object]:
+def _build_line_counts(root: Path, files: list[Path], *, top_files_limit: int = 10) -> dict[str, object]:
     python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
     python_files = 0
+    python_file_counts: list[dict[str, object]] = []
     for relative_path in files:
         if relative_path.suffix != ".py":
             continue
@@ -90,11 +91,15 @@ def _build_line_counts(root: Path, files: list[Path]) -> dict[str, object]:
         python_counts[_python_bucket(relative_path)] += line_count
         python_counts["total"] += line_count
         python_files += 1
+        python_file_counts.append({"path": relative_path.as_posix(), "lines": line_count})
+
+    python_file_counts.sort(key=lambda item: (-int(item["lines"]), str(item["path"])))
 
     return {
         "tracked_files": len(files),
         "python_files": python_files,
         "python": python_counts,
+        "top_python_files": python_file_counts[:top_files_limit],
     }
 
 
@@ -215,6 +220,18 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
     lines.extend(
         [
             "",
+            "## Largest Python Files",
+            "| Path | Lines |",
+            "| --- | ---: |",
+        ]
+    )
+    for item in line_counts.get("top_python_files", []):
+        file_item = item if isinstance(item, dict) else {}
+        lines.append(f"| {file_item.get('path', '')} | {file_item.get('lines', '')} |")
+
+    lines.extend(
+        [
+            "",
             "## Targets",
             "| Target | Required | Current | Remaining | Met | Basis |",
             "| --- | ---: | ---: | ---: | --- | --- |",
@@ -244,11 +261,12 @@ def build_project_metrics(
     *,
     target_commits: int | None = None,
     target_python_lines: int | None = None,
+    top_files_limit: int = 10,
 ) -> ProjectMetrics:
     resolved_root = Path(root).resolve()
     git = _build_git_metrics(resolved_root)
     files = _tracked_files(resolved_root, git.is_repository)
-    line_counts = _build_line_counts(resolved_root, files)
+    line_counts = _build_line_counts(resolved_root, files, top_files_limit=top_files_limit)
     targets = _build_targets(
         git=git,
         line_counts=line_counts,

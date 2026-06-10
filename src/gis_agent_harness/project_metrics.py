@@ -102,7 +102,13 @@ def _python_bucket(relative_path: Path) -> str:
     return "other"
 
 
-def _build_line_counts(root: Path, files: list[Path], *, top_files_limit: int = 10) -> dict[str, object]:
+def _build_line_counts(
+    root: Path,
+    files: list[Path],
+    *,
+    file_source: str,
+    top_files_limit: int = 10,
+) -> dict[str, object]:
     python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
     python_files = 0
     python_file_counts: list[dict[str, object]] = []
@@ -121,6 +127,7 @@ def _build_line_counts(root: Path, files: list[Path], *, top_files_limit: int = 
     python_file_counts.sort(key=lambda item: (-int(item["lines"]), str(item["path"])))
 
     return {
+        "file_source": file_source,
         "tracked_files": len(files),
         "python_files": python_files,
         "python": python_counts,
@@ -291,7 +298,12 @@ def build_project_metrics(
     resolved_root = Path(root).resolve()
     git = _build_git_metrics(resolved_root)
     files = _tracked_files(resolved_root, git.is_repository)
-    line_counts = _build_line_counts(resolved_root, files, top_files_limit=top_files_limit)
+    line_counts = _build_line_counts(
+        resolved_root,
+        files,
+        file_source="git" if git.is_repository else "filesystem",
+        top_files_limit=top_files_limit,
+    )
     targets = _build_targets(
         git=git,
         line_counts=line_counts,

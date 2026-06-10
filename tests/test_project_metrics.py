@@ -77,6 +77,10 @@ def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path)
         "other": 0,
     }
     assert payload["line_counts"]["tracked_files"] == 4
+    assert payload["line_counts"]["file_types"] == {
+        ".md": {"files": 1, "lines": 1},
+        ".py": {"files": 3, "lines": 5},
+    }
     assert payload["line_counts"]["python"] == {
         "src": 2,
         "tests": 2,
@@ -113,6 +117,10 @@ def test_project_metrics_counts_python_lines_without_git_repo(tmp_path: Path) ->
     assert payload["git"]["is_repository"] is False
     assert payload["line_counts"]["file_source"] == "filesystem"
     assert payload["line_counts"]["tracked_files"] == 3
+    assert payload["line_counts"]["file_types"] == {
+        ".md": {"files": 1, "lines": 1},
+        ".py": {"files": 2, "lines": 5},
+    }
     assert payload["line_counts"]["python"] == {
         "src": 3,
         "tests": 2,

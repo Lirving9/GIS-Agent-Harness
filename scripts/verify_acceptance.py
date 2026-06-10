@@ -579,6 +579,8 @@ def main() -> None:
                 "100",
                 "--target-python-lines",
                 "10000",
+                "--target-total-lines",
+                "10000",
             ],
             env=readme_env,
             cwd=ROOT,
@@ -596,6 +598,8 @@ def main() -> None:
                 "--target-commits",
                 "100",
                 "--target-python-lines",
+                "10000",
+                "--target-total-lines",
                 "10000",
                 "--format",
                 "markdown",
@@ -615,6 +619,8 @@ def main() -> None:
                 "--target-commits",
                 "1000000",
                 "--target-python-lines",
+                "10000",
+                "--target-total-lines",
                 "10000",
                 "--fail-on-unmet-targets",
             ],
@@ -800,18 +806,23 @@ def main() -> None:
             project_metrics_payload["git"]["is_repository"] is True
             and project_metrics_payload["targets"]["commits"]["required"] == 100
             and project_metrics_payload["targets"]["python_lines"]["required"] == 10000
+            and project_metrics_payload["targets"]["total_lines"]["required"] == 10000
             and project_metrics_payload["targets"]["python_lines"]["met"] is True
+            and project_metrics_payload["targets"]["total_lines"]["met"] is True
             and project_metrics_payload["line_counts"]["python"]["total"] >= 10000
+            and project_metrics_payload["line_counts"]["total_lines"] >= 10000
         )
         project_metrics_markdown_ok = (
             "# GIS Agent Harness Project Metrics" in project_metrics_markdown
             and "| Target | Required | Current | Remaining | Met | Basis |" in project_metrics_markdown
             and "python_lines" in project_metrics_markdown
+            and "total_lines" in project_metrics_markdown
         )
         project_metrics_strict_gate_ok = (
             project_metrics_strict_gate_payload["returncode"] == 1
             and project_metrics_strict_gate_payload["payload"]["targets"]["commits"]["met"] is False
             and project_metrics_strict_gate_payload["payload"]["targets"]["python_lines"]["met"] is True
+            and project_metrics_strict_gate_payload["payload"]["targets"]["total_lines"]["met"] is True
         )
         project_metrics_top_files = project_metrics_top_files_payload["line_counts"]["top_python_files"]
         project_metrics_top_files_ok = (

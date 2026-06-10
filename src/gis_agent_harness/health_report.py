@@ -720,6 +720,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "Document the largest-file audit for explaining code-size distribution.",
     ),
     _CheckSpec(
+        "readme_project_metrics_total_lines_command",
+        "documentation",
+        "README project metrics total lines command",
+        "medium",
+        "README.md",
+        ("project-metrics", "--target-total-lines 10000"),
+        "Document the total line target audit for handoff checks.",
+    ),
+    _CheckSpec(
         "acceptance_project_metrics",
         "testing",
         "acceptance project metrics check",
@@ -754,6 +763,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "scripts/verify_acceptance.py",
         ("project_metrics_top_files", "top-files", "top_python_files"),
         "Keep the largest-file metrics audit covered by acceptance evidence.",
+    ),
+    _CheckSpec(
+        "acceptance_project_metrics_total_lines",
+        "testing",
+        "acceptance project metrics total lines check",
+        "medium",
+        "scripts/verify_acceptance.py",
+        ("target-total-lines", "total_lines", "line_counts"),
+        "Keep the total line target covered by acceptance evidence.",
     ),
     _CheckSpec(
         "acceptance_health_report_strict_gate",

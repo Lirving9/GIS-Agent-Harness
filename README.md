@@ -137,10 +137,10 @@ python3 -m gis_agent_harness.cli health-report --format markdown --category test
 python3 -m gis_agent_harness.cli health-report --category testing --fail-on-failed
 python3 -m gis_agent_harness.cli improvement-catalog --category cli --min-priority high --contains output --limit 10
 python3 -m gis_agent_harness.cli improvement-catalog --format markdown --category security --limit 10
-python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000
-python3 -m gis_agent_harness.cli project-metrics --format markdown --target-commits 100 --target-python-lines 10000
-python3 -m gis_agent_harness.cli project-metrics --top-files 3 --target-commits 100 --target-python-lines 10000
-python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000 --fail-on-unmet-targets
+python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000 --target-total-lines 10000
+python3 -m gis_agent_harness.cli project-metrics --format markdown --target-commits 100 --target-python-lines 10000 --target-total-lines 10000
+python3 -m gis_agent_harness.cli project-metrics --top-files 3 --target-commits 100 --target-python-lines 10000 --target-total-lines 10000
+python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000 --target-total-lines 10000 --fail-on-unmet-targets
 python3 -m gis_agent_harness.cli narrative-report \
   --adoption-json-file .runs/adoption.json \
   --output-file .runs/NARRATIVE_REPORT.md

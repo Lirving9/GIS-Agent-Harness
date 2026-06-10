@@ -641,21 +641,28 @@ def requirement_matrix_command() -> None:
 @click.option("--root", type=click.Path(path_type=Path), default=Path("."), show_default=True)
 @click.option("--category", default=None, help="Only include checks from one category.")
 @click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--fail-on-failed", is_flag=True, help="Exit with status 1 when any health check fails.")
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered report.")
 def health_report_command(
     root: Path,
     category: str | None,
     output_format: str,
+    fail_on_failed: bool,
     output_file: Path | None,
 ) -> None:
     """Render a local project health report with 50+ implementation checks."""
     from .health_report import build_health_report, render_health_report_markdown
 
     report = build_health_report(root, category=category)
+    has_failed_checks = int(report.summary.get("failed", 0)) > 0
     if output_format == "markdown":
         _emit_text(render_health_report_markdown(report), output_file=output_file)
+        if fail_on_failed and has_failed_checks:
+            raise click.exceptions.Exit(1)
         return
     _dump(report.to_dict(), output_file=output_file)
+    if fail_on_failed and has_failed_checks:
+        raise click.exceptions.Exit(1)
 
 
 @main.command("project-metrics")

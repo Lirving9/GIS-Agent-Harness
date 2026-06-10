@@ -147,6 +147,54 @@ def test_project_metrics_cli_renders_markdown(tmp_path: Path) -> None:
     assert "| python_lines | 8 | 5 | 3 | no |  |" in result.output
 
 
+def test_project_metrics_cli_can_fail_when_targets_are_unmet(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "project-metrics",
+            "--root",
+            str(repo),
+            "--target-commits",
+            "2",
+            "--target-python-lines",
+            "8",
+            "--fail-on-unmet-targets",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["targets"]["commits"]["met"] is False
+    assert payload["targets"]["python_lines"]["met"] is False
+
+
+def test_project_metrics_cli_strict_mode_passes_when_targets_are_met(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "project-metrics",
+            "--root",
+            str(repo),
+            "--target-commits",
+            "1",
+            "--target-python-lines",
+            "5",
+            "--fail-on-unmet-targets",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["targets"]["commits"]["met"] is True
+    assert payload["targets"]["python_lines"]["met"] is True
+
+
 def test_project_metrics_command_is_in_cli_help() -> None:
     runner = CliRunner()
 

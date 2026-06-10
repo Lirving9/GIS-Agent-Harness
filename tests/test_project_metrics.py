@@ -68,6 +68,14 @@ def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path)
     assert payload["git"]["is_repository"] is True
     assert payload["git"]["head_commit_count"] == 1
     assert payload["git"]["worktree_clean"] is False
+    assert payload["git"]["status_summary"] == {
+        "added": 0,
+        "deleted": 0,
+        "modified": 0,
+        "renamed": 0,
+        "untracked": 1,
+        "other": 0,
+    }
     assert payload["line_counts"]["tracked_files"] == 4
     assert payload["line_counts"]["python"] == {
         "src": 2,

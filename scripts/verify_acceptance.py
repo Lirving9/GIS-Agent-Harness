@@ -589,6 +589,26 @@ def main() -> None:
             "stderr": project_metrics_strict_stderr,
         }
 
+        _, project_metrics_top_files_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "project-metrics",
+                "--root",
+                str(ROOT),
+                "--top-files",
+                "3",
+                "--target-commits",
+                "100",
+                "--target-python-lines",
+                "10000",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        project_metrics_top_files_payload = json.loads(project_metrics_top_files_stdout)
+
         adoption_json_file = advanced_dir / "adoption.json"
         adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
@@ -748,6 +768,12 @@ def main() -> None:
             and project_metrics_strict_gate_payload["payload"]["targets"]["commits"]["met"] is False
             and project_metrics_strict_gate_payload["payload"]["targets"]["python_lines"]["met"] is True
         )
+        project_metrics_top_files = project_metrics_top_files_payload["line_counts"]["top_python_files"]
+        project_metrics_top_files_ok = (
+            len(project_metrics_top_files) == 3
+            and project_metrics_top_files[0]["lines"] >= project_metrics_top_files[-1]["lines"]
+            and project_metrics_top_files_payload["targets"]["python_lines"]["met"] is True
+        )
         narrative_report_ok = (
             narrative_payload["output_path"] == str(narrative_path)
             and narrative_path.exists()
@@ -800,6 +826,7 @@ def main() -> None:
             "project_metrics": project_metrics_ok,
             "project_metrics_markdown": project_metrics_markdown_ok,
             "project_metrics_strict_gate": project_metrics_strict_gate_ok,
+            "project_metrics_top_files": project_metrics_top_files_ok,
             "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
@@ -826,6 +853,7 @@ def main() -> None:
                 "project_metrics": project_metrics_payload,
                 "project_metrics_markdown": project_metrics_markdown,
                 "project_metrics_strict_gate": project_metrics_strict_gate_payload,
+                "project_metrics_top_files": project_metrics_top_files_payload,
                 "advanced_geoai": {
                     "mcp_tools": mcp_payload,
                     "aligned_parameters": align_payload,

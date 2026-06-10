@@ -702,6 +702,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "Document the optional nonzero exit gate for unmet progress targets.",
     ),
     _CheckSpec(
+        "readme_project_metrics_top_files_command",
+        "documentation",
+        "README project metrics top files command",
+        "medium",
+        "README.md",
+        ("project-metrics", "--top-files 3", "--target-python-lines 10000"),
+        "Document the largest-file audit for explaining code-size distribution.",
+    ),
+    _CheckSpec(
         "acceptance_project_metrics",
         "testing",
         "acceptance project metrics check",
@@ -727,6 +736,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "scripts/verify_acceptance.py",
         ("project_metrics_strict_gate", "fail-on-unmet-targets", "expect_success=False"),
         "Keep the strict metrics gate covered by acceptance evidence.",
+    ),
+    _CheckSpec(
+        "acceptance_project_metrics_top_files",
+        "testing",
+        "acceptance project metrics top files check",
+        "medium",
+        "scripts/verify_acceptance.py",
+        ("project_metrics_top_files", "top-files", "top_python_files"),
+        "Keep the largest-file metrics audit covered by acceptance evidence.",
     ),
     _CheckSpec(
         "mcp_runtime_dispatch",

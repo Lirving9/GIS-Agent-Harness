@@ -165,6 +165,8 @@ def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
             "2",
             "--target-python-lines",
             "8",
+            "--target-total-lines",
+            "6",
         ],
     )
 
@@ -174,6 +176,7 @@ def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
     assert payload["line_counts"]["python"]["total"] == 5
     assert payload["targets"]["commits"]["remaining"] == 1
     assert payload["targets"]["python_lines"]["remaining"] == 3
+    assert payload["targets"]["total_lines"]["met"] is True
 
 
 def test_project_metrics_cli_limits_top_python_files(tmp_path: Path) -> None:

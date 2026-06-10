@@ -136,6 +136,7 @@ python3 -m gis_agent_harness.cli health-report
 python3 -m gis_agent_harness.cli health-report --format markdown --category testing
 python3 -m gis_agent_harness.cli improvement-catalog --category cli --min-priority high --contains output --limit 10
 python3 -m gis_agent_harness.cli improvement-catalog --format markdown --category security --limit 10
+python3 -m gis_agent_harness.cli project-metrics --target-commits 100 --target-python-lines 10000
 python3 -m gis_agent_harness.cli narrative-report \
   --adoption-json-file .runs/adoption.json \
   --output-file .runs/NARRATIVE_REPORT.md
@@ -210,6 +211,7 @@ The architecture blueprint features are exposed as deterministic local contracts
 - `requirement-matrix` publishes blueprint-to-implementation coverage evidence.
 - `health-report` runs 50+ local project checks across CLI, testing, packaging, documentation, security, operations, and architecture readiness.
 - `improvement-catalog` exposes a 1000-item offline improvement backlog with category, priority, text, limit, JSON, and Markdown filters.
+- `project-metrics` reports local Git/upstream commit counts and tracked Python line totals for progress audits.
 - `narrative-report` turns adoption-report JSON into `NARRATIVE_REPORT.md` for provenance and handoff.
 
 These commands do not deploy cloud infrastructure, start a web server, or call external APIs by default.

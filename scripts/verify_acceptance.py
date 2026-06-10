@@ -69,6 +69,7 @@ REQUIRED_PATHS = [
     "src/gis_agent_harness/context_compaction.py",
     "src/gis_agent_harness/health_report.py",
     "src/gis_agent_harness/improvement_catalog.py",
+    "src/gis_agent_harness/project_metrics.py",
     "src/gis_agent_harness/narrative_report.py",
     "src/gis_agent_harness/requirement_matrix.py",
     "src/gis_agent_harness/tui/__init__.py",
@@ -97,6 +98,7 @@ REQUIRED_PATHS = [
     "tests/test_telemetry.py",
     "tests/test_health_report.py",
     "tests/test_improvement_catalog.py",
+    "tests/test_project_metrics.py",
     "tests/test_tui_smoke.py",
     "tests/test_advanced_geoai.py",
     "tests/test_blueprint_execution.py",
@@ -526,6 +528,24 @@ def main() -> None:
         )
         improvement_catalog_payload = json.loads(improvement_catalog_stdout)
 
+        _, project_metrics_stdout, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "project-metrics",
+                "--root",
+                str(ROOT),
+                "--target-commits",
+                "100",
+                "--target-python-lines",
+                "10000",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+        project_metrics_payload = json.loads(project_metrics_stdout)
+
         adoption_json_file = advanced_dir / "adoption.json"
         adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
@@ -668,6 +688,13 @@ def main() -> None:
             and all(item["category"] == "cli" for item in improvement_catalog_payload["items"])
             and all(item["priority"] in {"critical", "high"} for item in improvement_catalog_payload["items"])
         )
+        project_metrics_ok = (
+            project_metrics_payload["git"]["is_repository"] is True
+            and project_metrics_payload["targets"]["commits"]["required"] == 100
+            and project_metrics_payload["targets"]["python_lines"]["required"] == 10000
+            and project_metrics_payload["targets"]["python_lines"]["met"] is True
+            and project_metrics_payload["line_counts"]["python"]["total"] >= 10000
+        )
         narrative_report_ok = (
             narrative_payload["output_path"] == str(narrative_path)
             and narrative_path.exists()
@@ -717,6 +744,7 @@ def main() -> None:
             "requirement_matrix": requirement_matrix_ok,
             "health_report": health_report_ok,
             "improvement_catalog": improvement_catalog_ok,
+            "project_metrics": project_metrics_ok,
             "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
@@ -740,6 +768,7 @@ def main() -> None:
                 "spatial_map": spatial_map_payload,
                 "qgis_json": qgis_payload,
                 "adoption_report": adoption_payload,
+                "project_metrics": project_metrics_payload,
                 "advanced_geoai": {
                     "mcp_tools": mcp_payload,
                     "aligned_parameters": align_payload,

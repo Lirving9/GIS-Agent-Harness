@@ -658,6 +658,28 @@ def health_report_command(
     _dump(report.to_dict(), output_file=output_file)
 
 
+@main.command("project-metrics")
+@click.option("--root", type=click.Path(path_type=Path), default=Path("."), show_default=True)
+@click.option("--target-commits", type=click.IntRange(min=0), default=None, help="Optional commit-count target.")
+@click.option("--target-python-lines", type=click.IntRange(min=0), default=None, help="Optional tracked Python line target.")
+@click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered metrics.")
+def project_metrics_command(
+    root: Path,
+    target_commits: int | None,
+    target_python_lines: int | None,
+    output_file: Path | None,
+) -> None:
+    """Render local Git and tracked-code metrics for progress audits."""
+    from .project_metrics import build_project_metrics
+
+    metrics = build_project_metrics(
+        root,
+        target_commits=target_commits,
+        target_python_lines=target_python_lines,
+    )
+    _dump(metrics.to_dict(), output_file=output_file)
+
+
 @main.command("improvement-catalog")
 @click.option("--category", default=None, help="Only include improvement items from one category.")
 @click.option(

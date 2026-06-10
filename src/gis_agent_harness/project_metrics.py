@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+import subprocess
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class GitMetrics:
+    is_repository: bool
+    branch: str | None
+    head: str | None
+    head_commit_count: int | None
+    upstream_ref: str | None
+    upstream_commit_count: int | None
+    ahead: int | None
+    behind: int | None
+    worktree_clean: bool | None
+    status_entries: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectMetrics:
+    root: Path
+    git: GitMetrics
+    line_counts: dict[str, object]
+    targets: dict[str, object]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "root": str(self.root),
+            "git": self.git.to_dict(),
+            "line_counts": self.line_counts,
+            "targets": self.targets,
+        }
+
+
+def _run_git(root: Path, *args: str) -> tuple[bool, str]:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    return result.returncode == 0, result.stdout.strip()
+
+
+def _parse_count(value: str) -> int | None:
+    try:
+        return int(value.strip())
+    except ValueError:
+        return None
+
+
+def _tracked_files(root: Path, is_repository: bool) -> list[Path]:
+    if not is_repository:
+        return []
+    ok, stdout = _run_git(root, "ls-files")
+    if not ok:
+        return []
+    return [Path(line) for line in stdout.splitlines() if line.strip()]
+
+
+def _count_lines(path: Path) -> int:
+    with path.open("rb") as handle:
+        return sum(1 for _ in handle)
+
+
+def _python_bucket(relative_path: Path) -> str:
+    first_part = relative_path.parts[0] if relative_path.parts else ""
+    if first_part in {"src", "tests", "scripts"}:
+        return first_part
+    return "other"
+
+
+def _build_line_counts(root: Path, files: list[Path]) -> dict[str, object]:
+    python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
+    python_files = 0
+    for relative_path in files:
+        if relative_path.suffix != ".py":
+            continue
+        absolute_path = root / relative_path
+        if not absolute_path.is_file():
+            continue
+        line_count = _count_lines(absolute_path)
+        python_counts[_python_bucket(relative_path)] += line_count
+        python_counts["total"] += line_count
+        python_files += 1
+
+    return {
+        "tracked_files": len(files),
+        "python_files": python_files,
+        "python": python_counts,
+    }
+
+
+def _build_git_metrics(root: Path) -> GitMetrics:
+    ok, stdout = _run_git(root, "rev-parse", "--is-inside-work-tree")
+    is_repository = ok and stdout == "true"
+    if not is_repository:
+        return GitMetrics(
+            is_repository=False,
+            branch=None,
+            head=None,
+            head_commit_count=None,
+            upstream_ref=None,
+            upstream_commit_count=None,
+            ahead=None,
+            behind=None,
+            worktree_clean=None,
+            status_entries=[],
+        )
+
+    _, branch = _run_git(root, "branch", "--show-current")
+    _, head = _run_git(root, "rev-parse", "--short", "HEAD")
+    _, head_count_text = _run_git(root, "rev-list", "--count", "HEAD")
+    head_commit_count = _parse_count(head_count_text)
+
+    upstream_ref: str | None = None
+    upstream_commit_count: int | None = None
+    ahead: int | None = None
+    behind: int | None = None
+    ok, upstream_text = _run_git(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    if ok and upstream_text:
+        upstream_ref = upstream_text
+        ok, upstream_count_text = _run_git(root, "rev-list", "--count", upstream_ref)
+        if ok:
+            upstream_commit_count = _parse_count(upstream_count_text)
+        ok, ahead_behind_text = _run_git(root, "rev-list", "--left-right", "--count", f"HEAD...{upstream_ref}")
+        if ok:
+            parts = ahead_behind_text.split()
+            if len(parts) == 2:
+                ahead = _parse_count(parts[0])
+                behind = _parse_count(parts[1])
+
+    _, status_text = _run_git(root, "status", "--short", "--untracked-files=all")
+    status_entries = [line for line in status_text.splitlines() if line.strip()]
+    return GitMetrics(
+        is_repository=True,
+        branch=branch or None,
+        head=head or None,
+        head_commit_count=head_commit_count,
+        upstream_ref=upstream_ref,
+        upstream_commit_count=upstream_commit_count,
+        ahead=ahead,
+        behind=behind,
+        worktree_clean=not status_entries,
+        status_entries=status_entries,
+    )
+
+
+def _build_targets(
+    *,
+    git: GitMetrics,
+    line_counts: dict[str, object],
+    target_commits: int | None,
+    target_python_lines: int | None,
+) -> dict[str, object]:
+    targets: dict[str, object] = {}
+    if target_commits is not None:
+        current = git.upstream_commit_count if git.upstream_commit_count is not None else git.head_commit_count
+        current_count = current or 0
+        targets["commits"] = {
+            "required": target_commits,
+            "current": current_count,
+            "remaining": max(target_commits - current_count, 0),
+            "met": current_count >= target_commits,
+            "basis": git.upstream_ref or "HEAD",
+        }
+    if target_python_lines is not None:
+        python_counts = line_counts.get("python")
+        current_count = python_counts.get("total", 0) if isinstance(python_counts, dict) else 0
+        targets["python_lines"] = {
+            "required": target_python_lines,
+            "current": current_count,
+            "remaining": max(target_python_lines - current_count, 0),
+            "met": current_count >= target_python_lines,
+        }
+    return targets
+
+
+def build_project_metrics(
+    root: str | Path = Path("."),
+    *,
+    target_commits: int | None = None,
+    target_python_lines: int | None = None,
+) -> ProjectMetrics:
+    resolved_root = Path(root).resolve()
+    git = _build_git_metrics(resolved_root)
+    files = _tracked_files(resolved_root, git.is_repository)
+    line_counts = _build_line_counts(resolved_root, files)
+    targets = _build_targets(
+        git=git,
+        line_counts=line_counts,
+        target_commits=target_commits,
+        target_python_lines=target_python_lines,
+    )
+    return ProjectMetrics(root=resolved_root, git=git, line_counts=line_counts, targets=targets)

@@ -729,6 +729,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "Document the total line target audit for handoff checks.",
     ),
     _CheckSpec(
+        "readme_project_metrics_clean_gate_command",
+        "documentation",
+        "README project metrics clean gate command",
+        "medium",
+        "README.md",
+        ("project-metrics", "--require-clean", "--target-total-lines 10000"),
+        "Document the clean-worktree gate for final handoff checks.",
+    ),
+    _CheckSpec(
         "acceptance_project_metrics",
         "testing",
         "acceptance project metrics check",

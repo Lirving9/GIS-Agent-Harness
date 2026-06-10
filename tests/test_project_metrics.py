@@ -61,7 +61,7 @@ def _add_tracked_python_file(repo: Path, relative_path: str, line_count: int) ->
 def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
 
-    metrics = build_project_metrics(repo, target_commits=2, target_python_lines=8)
+    metrics = build_project_metrics(repo, target_commits=2, target_python_lines=8, target_total_lines=6)
     payload = metrics.to_dict()
 
     assert payload["root"] == str(repo.resolve())
@@ -100,6 +100,12 @@ def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path)
         "current": 5,
         "remaining": 3,
         "met": False,
+    }
+    assert payload["targets"]["total_lines"] == {
+        "required": 6,
+        "current": 6,
+        "remaining": 0,
+        "met": True,
     }
 
 

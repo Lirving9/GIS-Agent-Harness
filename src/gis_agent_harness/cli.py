@@ -663,12 +663,14 @@ def health_report_command(
 @click.option("--target-commits", type=click.IntRange(min=0), default=None, help="Optional commit-count target.")
 @click.option("--target-python-lines", type=click.IntRange(min=0), default=None, help="Optional tracked Python line target.")
 @click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--fail-on-unmet-targets", is_flag=True, help="Exit with status 1 when any configured target is unmet.")
 @click.option("--output-file", type=click.Path(path_type=Path), default=None, help="Optional path to write the rendered metrics.")
 def project_metrics_command(
     root: Path,
     target_commits: int | None,
     target_python_lines: int | None,
     output_format: str,
+    fail_on_unmet_targets: bool,
     output_file: Path | None,
 ) -> None:
     """Render local Git and tracked-code metrics for progress audits."""
@@ -679,10 +681,20 @@ def project_metrics_command(
         target_commits=target_commits,
         target_python_lines=target_python_lines,
     )
+    payload = metrics.to_dict()
+    target_values = payload.get("targets", {})
+    has_unmet_target = any(
+        isinstance(target, dict) and target.get("met") is False
+        for target in (target_values.values() if isinstance(target_values, dict) else [])
+    )
     if output_format == "markdown":
         _emit_text(render_project_metrics_markdown(metrics), output_file=output_file)
+        if fail_on_unmet_targets and has_unmet_target:
+            raise click.exceptions.Exit(1)
         return
-    _dump(metrics.to_dict(), output_file=output_file)
+    _dump(payload, output_file=output_file)
+    if fail_on_unmet_targets and has_unmet_target:
+        raise click.exceptions.Exit(1)
 
 
 @main.command("improvement-catalog")

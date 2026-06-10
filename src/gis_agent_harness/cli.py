@@ -669,6 +669,7 @@ def health_report_command(
 @click.option("--root", type=click.Path(path_type=Path), default=Path("."), show_default=True)
 @click.option("--target-commits", type=click.IntRange(min=0), default=None, help="Optional commit-count target.")
 @click.option("--target-python-lines", type=click.IntRange(min=0), default=None, help="Optional tracked Python line target.")
+@click.option("--target-total-lines", type=click.IntRange(min=0), default=None, help="Optional tracked text line target.")
 @click.option("--top-files", type=click.IntRange(min=0), default=10, show_default=True, help="Number of largest tracked Python files to include.")
 @click.option("--format", "output_format", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
 @click.option("--fail-on-unmet-targets", is_flag=True, help="Exit with status 1 when any configured target is unmet.")
@@ -677,6 +678,7 @@ def project_metrics_command(
     root: Path,
     target_commits: int | None,
     target_python_lines: int | None,
+    target_total_lines: int | None,
     top_files: int,
     output_format: str,
     fail_on_unmet_targets: bool,
@@ -689,6 +691,7 @@ def project_metrics_command(
         root,
         target_commits=target_commits,
         target_python_lines=target_python_lines,
+        target_total_lines=target_total_lines,
         top_files_limit=top_files,
     )
     payload = metrics.to_dict()

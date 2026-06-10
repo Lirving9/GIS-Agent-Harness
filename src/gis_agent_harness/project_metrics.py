@@ -31,6 +31,7 @@ class GitMetrics:
     behind: int | None
     worktree_clean: bool | None
     status_entries: list[str]
+    status_summary: dict[str, int]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -102,6 +103,32 @@ def _python_bucket(relative_path: Path) -> str:
     return "other"
 
 
+def _summarize_status_entries(status_entries: list[str]) -> dict[str, int]:
+    summary = {
+        "added": 0,
+        "deleted": 0,
+        "modified": 0,
+        "renamed": 0,
+        "untracked": 0,
+        "other": 0,
+    }
+    for entry in status_entries:
+        code = entry[:2]
+        if code == "??":
+            summary["untracked"] += 1
+        elif "R" in code:
+            summary["renamed"] += 1
+        elif "A" in code:
+            summary["added"] += 1
+        elif "D" in code:
+            summary["deleted"] += 1
+        elif "M" in code:
+            summary["modified"] += 1
+        else:
+            summary["other"] += 1
+    return summary
+
+
 def _build_line_counts(
     root: Path,
     files: list[Path],
@@ -150,6 +177,7 @@ def _build_git_metrics(root: Path) -> GitMetrics:
             behind=None,
             worktree_clean=None,
             status_entries=[],
+            status_summary={},
         )
 
     _, branch = _run_git(root, "branch", "--show-current")
@@ -187,6 +215,7 @@ def _build_git_metrics(root: Path) -> GitMetrics:
         behind=behind,
         worktree_clean=not status_entries,
         status_entries=status_entries,
+        status_summary=_summarize_status_entries(status_entries),
     )
 
 

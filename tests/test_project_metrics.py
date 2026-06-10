@@ -50,6 +50,14 @@ def _make_repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _add_tracked_python_file(repo: Path, relative_path: str, line_count: int) -> None:
+    path = repo / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("print('line')\n" * line_count, encoding="utf-8")
+    _git(repo, "add", relative_path)
+    _git(repo, "commit", "-m", f"add {relative_path}")
+
+
 def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
 
@@ -83,6 +91,19 @@ def test_project_metrics_counts_tracked_python_lines_and_targets(tmp_path: Path)
     }
 
 
+def test_project_metrics_reports_top_tracked_python_files(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    _add_tracked_python_file(repo, "src/pkg/big.py", 4)
+
+    metrics = build_project_metrics(repo, top_files_limit=2)
+    payload = metrics.to_dict()
+
+    assert payload["line_counts"]["top_python_files"] == [
+        {"path": "src/pkg/big.py", "lines": 4},
+        {"path": "src/pkg/app.py", "lines": 2},
+    ]
+
+
 def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     runner = CliRunner()
@@ -106,6 +127,29 @@ def test_project_metrics_cli_outputs_json(tmp_path: Path) -> None:
     assert payload["line_counts"]["python"]["total"] == 5
     assert payload["targets"]["commits"]["remaining"] == 1
     assert payload["targets"]["python_lines"]["remaining"] == 3
+
+
+def test_project_metrics_cli_limits_top_python_files(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    _add_tracked_python_file(repo, "src/pkg/big.py", 4)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "project-metrics",
+            "--root",
+            str(repo),
+            "--top-files",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["line_counts"]["top_python_files"] == [
+        {"path": "src/pkg/big.py", "lines": 4},
+    ]
 
 
 def test_project_metrics_markdown_renderer_summarizes_targets(tmp_path: Path) -> None:

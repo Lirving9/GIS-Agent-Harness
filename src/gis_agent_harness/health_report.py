@@ -684,6 +684,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "Document the progress-audit command for local and cloud commit goals.",
     ),
     _CheckSpec(
+        "readme_project_metrics_markdown_command",
+        "documentation",
+        "README project metrics Markdown command",
+        "medium",
+        "README.md",
+        ("project-metrics --format markdown", "--target-commits 100", "--target-python-lines 10000"),
+        "Document the human-readable project metrics view for handoff reports.",
+    ),
+    _CheckSpec(
         "acceptance_project_metrics",
         "testing",
         "acceptance project metrics check",
@@ -691,6 +700,15 @@ CHECK_SPECS: tuple[_CheckSpec, ...] = (
         "scripts/verify_acceptance.py",
         ("project_metrics", "project-metrics", "target-python-lines"),
         "Keep project metrics wired into acceptance evidence.",
+    ),
+    _CheckSpec(
+        "acceptance_project_metrics_markdown",
+        "testing",
+        "acceptance project metrics Markdown check",
+        "medium",
+        "scripts/verify_acceptance.py",
+        ("project_metrics_markdown", "format", "markdown"),
+        "Keep the Markdown metrics report wired into acceptance evidence.",
     ),
     _CheckSpec(
         "mcp_runtime_dispatch",

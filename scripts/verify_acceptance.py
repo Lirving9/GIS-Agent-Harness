@@ -546,6 +546,25 @@ def main() -> None:
         )
         project_metrics_payload = json.loads(project_metrics_stdout)
 
+        _, project_metrics_markdown, _ = run_command(
+            [
+                sys.executable,
+                "-m",
+                "gis_agent_harness.cli",
+                "project-metrics",
+                "--root",
+                str(ROOT),
+                "--target-commits",
+                "100",
+                "--target-python-lines",
+                "10000",
+                "--format",
+                "markdown",
+            ],
+            env=readme_env,
+            cwd=ROOT,
+        )
+
         adoption_json_file = advanced_dir / "adoption.json"
         adoption_json_file.write_text(json.dumps(adoption_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         narrative_path = advanced_dir / "NARRATIVE_REPORT.md"
@@ -695,6 +714,11 @@ def main() -> None:
             and project_metrics_payload["targets"]["python_lines"]["met"] is True
             and project_metrics_payload["line_counts"]["python"]["total"] >= 10000
         )
+        project_metrics_markdown_ok = (
+            "# GIS Agent Harness Project Metrics" in project_metrics_markdown
+            and "| Target | Required | Current | Remaining | Met | Basis |" in project_metrics_markdown
+            and "python_lines" in project_metrics_markdown
+        )
         narrative_report_ok = (
             narrative_payload["output_path"] == str(narrative_path)
             and narrative_path.exists()
@@ -745,6 +769,7 @@ def main() -> None:
             "health_report": health_report_ok,
             "improvement_catalog": improvement_catalog_ok,
             "project_metrics": project_metrics_ok,
+            "project_metrics_markdown": project_metrics_markdown_ok,
             "narrative_report": narrative_report_ok,
         }
         stop_conditions = {
@@ -769,6 +794,7 @@ def main() -> None:
                 "qgis_json": qgis_payload,
                 "adoption_report": adoption_payload,
                 "project_metrics": project_metrics_payload,
+                "project_metrics_markdown": project_metrics_markdown,
                 "advanced_geoai": {
                     "mcp_tools": mcp_payload,
                     "aligned_parameters": align_payload,

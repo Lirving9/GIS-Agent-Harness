@@ -142,6 +142,7 @@ def _build_line_counts(
 ) -> dict[str, object]:
     python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
     python_files = 0
+    total_lines = 0
     python_file_counts: list[dict[str, object]] = []
     file_type_counts: dict[str, dict[str, int]] = {}
     for relative_path in files:
@@ -149,6 +150,7 @@ def _build_line_counts(
         if not absolute_path.is_file():
             continue
         line_count = _count_lines(absolute_path)
+        total_lines += line_count
         extension = _extension_key(relative_path)
         file_type_counts.setdefault(extension, {"files": 0, "lines": 0})
         file_type_counts[extension]["files"] += 1
@@ -166,6 +168,7 @@ def _build_line_counts(
         "file_source": file_source,
         "tracked_files": len(files),
         "python_files": python_files,
+        "total_lines": total_lines,
         "file_types": dict(sorted(file_type_counts.items())),
         "python": python_counts,
         "top_python_files": python_file_counts[:top_files_limit],
@@ -235,6 +238,7 @@ def _build_targets(
     line_counts: dict[str, object],
     target_commits: int | None,
     target_python_lines: int | None,
+    target_total_lines: int | None,
 ) -> dict[str, object]:
     targets: dict[str, object] = {}
     if target_commits is not None:
@@ -255,6 +259,15 @@ def _build_targets(
             "current": current_count,
             "remaining": max(target_python_lines - current_count, 0),
             "met": current_count >= target_python_lines,
+        }
+    if target_total_lines is not None:
+        current_count = line_counts.get("total_lines", 0)
+        current_total = current_count if isinstance(current_count, int) else 0
+        targets["total_lines"] = {
+            "required": target_total_lines,
+            "current": current_total,
+            "remaining": max(target_total_lines - current_total, 0),
+            "met": current_total >= target_total_lines,
         }
     return targets
 
@@ -346,6 +359,7 @@ def build_project_metrics(
     *,
     target_commits: int | None = None,
     target_python_lines: int | None = None,
+    target_total_lines: int | None = None,
     top_files_limit: int = 10,
 ) -> ProjectMetrics:
     resolved_root = Path(root).resolve()
@@ -362,5 +376,6 @@ def build_project_metrics(
         line_counts=line_counts,
         target_commits=target_commits,
         target_python_lines=target_python_lines,
+        target_total_lines=target_total_lines,
     )
     return ProjectMetrics(root=resolved_root, git=git, line_counts=line_counts, targets=targets)

@@ -146,6 +146,8 @@ def test_verify_acceptance_script_smoke() -> None:
     assert all(payload["acceptance"].values())
     assert payload["acceptance"]["project_metrics"] is True
     assert payload["evidence"]["project_metrics"]["targets"]["python_lines"]["met"] is True
+    assert payload["acceptance"]["project_metrics_markdown"] is True
+    assert "# GIS Agent Harness Project Metrics" in payload["evidence"]["project_metrics_markdown"]
     assert payload["stop_conditions"]["all_acceptance_items"] is True
     assert payload["stop_conditions"]["readme_commands_copyable"] is True
     assert payload["stop_conditions"]["deliverables_present"] is True

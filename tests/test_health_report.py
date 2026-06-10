@@ -28,7 +28,9 @@ def test_health_report_builds_at_least_fifty_local_checks() -> None:
         "fixture_mutation_guard",
         "cli_project_metrics",
         "readme_project_metrics_command",
+        "readme_project_metrics_markdown_command",
         "acceptance_project_metrics",
+        "acceptance_project_metrics_markdown",
     } <= {item["check_id"] for item in payload["checks"]}
 
 

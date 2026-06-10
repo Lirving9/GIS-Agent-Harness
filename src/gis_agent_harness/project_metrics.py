@@ -5,6 +5,20 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
+_IGNORED_FALLBACK_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".runs",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    "reports",
+    "venv",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class GitMetrics:
     is_repository: bool
@@ -57,12 +71,23 @@ def _parse_count(value: str) -> int | None:
 
 
 def _tracked_files(root: Path, is_repository: bool) -> list[Path]:
-    if not is_repository:
+    if is_repository:
+        ok, stdout = _run_git(root, "ls-files")
+        if not ok:
+            return []
+        return [Path(line) for line in stdout.splitlines() if line.strip()]
+
+    if not root.exists():
         return []
-    ok, stdout = _run_git(root, "ls-files")
-    if not ok:
-        return []
-    return [Path(line) for line in stdout.splitlines() if line.strip()]
+    files: list[Path] = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        relative_path = path.relative_to(root)
+        if any(part in _IGNORED_FALLBACK_DIRS for part in relative_path.parts):
+            continue
+        files.append(relative_path)
+    return sorted(files)
 
 
 def _count_lines(path: Path) -> int:

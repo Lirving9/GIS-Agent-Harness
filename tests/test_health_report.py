@@ -110,6 +110,45 @@ def test_health_report_command_renders_markdown() -> None:
     assert "append-only state logging" in result.output
 
 
+def test_health_report_command_can_fail_when_checks_fail(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "health-report",
+            "--root",
+            str(tmp_path),
+            "--fail-on-failed",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["summary"]["failed"] > 0
+
+
+def test_health_report_strict_mode_passes_when_checks_pass() -> None:
+    root = Path(__file__).resolve().parents[1]
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "health-report",
+            "--root",
+            str(root),
+            "--category",
+            "testing",
+            "--fail-on-failed",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["summary"]["failed"] == 0
+
+
 def test_health_report_cli_import_does_not_load_heavy_gis_dependencies() -> None:
     code = """
 import json

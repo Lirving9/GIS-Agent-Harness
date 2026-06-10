@@ -29,8 +29,10 @@ def test_health_report_builds_at_least_fifty_local_checks() -> None:
         "cli_project_metrics",
         "readme_project_metrics_command",
         "readme_project_metrics_markdown_command",
+        "readme_project_metrics_strict_command",
         "acceptance_project_metrics",
         "acceptance_project_metrics_markdown",
+        "acceptance_project_metrics_strict_gate",
     } <= {item["check_id"] for item in payload["checks"]}
 
 

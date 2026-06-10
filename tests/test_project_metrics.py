@@ -294,6 +294,26 @@ def test_project_metrics_cli_strict_mode_passes_when_targets_are_met(tmp_path: P
     assert payload["targets"]["python_lines"]["met"] is True
 
 
+def test_project_metrics_cli_can_fail_when_worktree_is_dirty(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "project-metrics",
+            "--root",
+            str(repo),
+            "--require-clean",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["git"]["worktree_clean"] is False
+    assert payload["git"]["status_summary"]["untracked"] == 1
+
+
 def test_project_metrics_command_is_in_cli_help() -> None:
     runner = CliRunner()
 

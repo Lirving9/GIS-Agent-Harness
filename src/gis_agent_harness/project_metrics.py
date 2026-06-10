@@ -140,6 +140,7 @@ def _build_line_counts(
     file_source: str,
     top_files_limit: int = 10,
 ) -> dict[str, object]:
+    top_files_limit = max(top_files_limit, 0)
     python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
     python_files = 0
     total_lines = 0

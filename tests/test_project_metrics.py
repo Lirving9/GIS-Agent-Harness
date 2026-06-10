@@ -232,6 +232,16 @@ def test_project_metrics_markdown_renderer_summarizes_targets(tmp_path: Path) ->
     assert "| tests | 2 |" in markdown
 
 
+def test_project_metrics_markdown_escapes_table_cells(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    _add_tracked_python_file(repo, "src/pkg/name|with-pipe.py", 6)
+
+    markdown = render_project_metrics_markdown(build_project_metrics(repo, top_files_limit=1))
+
+    assert "src/pkg/name\\|with-pipe.py" in markdown
+    assert "src/pkg/name|with-pipe.py" not in markdown
+
+
 def test_project_metrics_cli_renders_markdown(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     runner = CliRunner()

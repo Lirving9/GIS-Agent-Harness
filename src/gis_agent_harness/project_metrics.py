@@ -278,13 +278,27 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
         f"- Branch: {git.get('branch') or ''}",
         f"- HEAD: {git.get('head') or ''}",
         f"- Upstream: {git.get('upstream_ref') or ''}",
+        f"- File source: {line_counts.get('file_source') or ''}",
         f"- Worktree clean: {_markdown_bool(git.get('worktree_clean'))}",
         f"- Ahead/behind: {git.get('ahead') if git.get('ahead') is not None else ''}/{git.get('behind') if git.get('behind') is not None else ''}",
+        "",
+        "## File Types",
+        "| Extension | Files | Lines |",
+        "| --- | ---: | ---: |",
+    ]
+    file_types = line_counts.get("file_types", {}) if isinstance(line_counts.get("file_types"), dict) else {}
+    for extension, counts in file_types.items():
+        item = counts if isinstance(counts, dict) else {}
+        lines.append(f"| {extension} | {item.get('files', 0)} | {item.get('lines', 0)} |")
+
+    lines.extend(
+        [
         "",
         "## Python Lines",
         "| Bucket | Lines |",
         "| --- | ---: |",
-    ]
+        ]
+    )
     for bucket in ("src", "tests", "scripts", "other", "total"):
         lines.append(f"| {bucket} | {python_counts.get(bucket, 0)} |")
 

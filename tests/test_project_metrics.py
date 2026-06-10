@@ -202,6 +202,16 @@ def test_project_metrics_cli_limits_top_python_files(tmp_path: Path) -> None:
     ]
 
 
+def test_project_metrics_clamps_negative_top_file_limit(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    _add_tracked_python_file(repo, "src/pkg/big.py", 4)
+
+    metrics = build_project_metrics(repo, top_files_limit=-1)
+    payload = metrics.to_dict()
+
+    assert payload["line_counts"]["top_python_files"] == []
+
+
 def test_project_metrics_markdown_renderer_summarizes_targets(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     metrics = build_project_metrics(repo, target_commits=2, target_python_lines=8)

@@ -277,6 +277,10 @@ def _markdown_bool(value: object) -> str:
     return "yes" if value is True else "no" if value is False else ""
 
 
+def _markdown_cell(value: object) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
 def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
     payload = metrics.to_dict()
     git = payload["git"] if isinstance(payload["git"], dict) else {}
@@ -315,7 +319,7 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
     file_types = line_counts.get("file_types", {}) if isinstance(line_counts.get("file_types"), dict) else {}
     for extension, counts in file_types.items():
         item = counts if isinstance(counts, dict) else {}
-        lines.append(f"| {extension} | {item.get('files', 0)} | {item.get('lines', 0)} |")
+        lines.append(f"| {_markdown_cell(extension)} | {item.get('files', 0)} | {item.get('lines', 0)} |")
 
     lines.extend(
         [
@@ -338,7 +342,7 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
     )
     for item in line_counts.get("top_python_files", []):
         file_item = item if isinstance(item, dict) else {}
-        lines.append(f"| {file_item.get('path', '')} | {file_item.get('lines', '')} |")
+        lines.append(f"| {_markdown_cell(file_item.get('path', ''))} | {file_item.get('lines', '')} |")
 
     lines.extend(
         [
@@ -354,12 +358,12 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
             "| "
             + " | ".join(
                 [
-                    str(target_name),
+                    _markdown_cell(target_name),
                     str(item.get("required", "")),
                     str(item.get("current", "")),
                     str(item.get("remaining", "")),
                     _markdown_bool(item.get("met")),
-                    str(item.get("basis", "")),
+                    _markdown_cell(item.get("basis", "")),
                 ]
             )
             + " |"

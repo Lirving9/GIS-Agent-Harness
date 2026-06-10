@@ -103,6 +103,7 @@ def test_project_metrics_counts_python_lines_without_git_repo(tmp_path: Path) ->
     payload = metrics.to_dict()
 
     assert payload["git"]["is_repository"] is False
+    assert payload["line_counts"]["file_source"] == "filesystem"
     assert payload["line_counts"]["tracked_files"] == 3
     assert payload["line_counts"]["python"] == {
         "src": 3,
@@ -121,6 +122,7 @@ def test_project_metrics_reports_top_tracked_python_files(tmp_path: Path) -> Non
     metrics = build_project_metrics(repo, top_files_limit=2)
     payload = metrics.to_dict()
 
+    assert payload["line_counts"]["file_source"] == "git"
     assert payload["line_counts"]["top_python_files"] == [
         {"path": "src/pkg/big.py", "lines": 4},
         {"path": "src/pkg/app.py", "lines": 2},

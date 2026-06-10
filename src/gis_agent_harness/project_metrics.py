@@ -103,6 +103,10 @@ def _python_bucket(relative_path: Path) -> str:
     return "other"
 
 
+def _extension_key(relative_path: Path) -> str:
+    return relative_path.suffix.lower() or "[none]"
+
+
 def _summarize_status_entries(status_entries: list[str]) -> dict[str, int]:
     summary = {
         "added": 0,
@@ -139,13 +143,18 @@ def _build_line_counts(
     python_counts = {"src": 0, "tests": 0, "scripts": 0, "other": 0, "total": 0}
     python_files = 0
     python_file_counts: list[dict[str, object]] = []
+    file_type_counts: dict[str, dict[str, int]] = {}
     for relative_path in files:
-        if relative_path.suffix != ".py":
-            continue
         absolute_path = root / relative_path
         if not absolute_path.is_file():
             continue
         line_count = _count_lines(absolute_path)
+        extension = _extension_key(relative_path)
+        file_type_counts.setdefault(extension, {"files": 0, "lines": 0})
+        file_type_counts[extension]["files"] += 1
+        file_type_counts[extension]["lines"] += line_count
+        if relative_path.suffix != ".py":
+            continue
         python_counts[_python_bucket(relative_path)] += line_count
         python_counts["total"] += line_count
         python_files += 1
@@ -157,6 +166,7 @@ def _build_line_counts(
         "file_source": file_source,
         "tracked_files": len(files),
         "python_files": python_files,
+        "file_types": dict(sorted(file_type_counts.items())),
         "python": python_counts,
         "top_python_files": python_file_counts[:top_files_limit],
     }

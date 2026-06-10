@@ -295,10 +295,22 @@ def render_project_metrics_markdown(metrics: ProjectMetrics) -> str:
         f"- Worktree clean: {_markdown_bool(git.get('worktree_clean'))}",
         f"- Ahead/behind: {git.get('ahead') if git.get('ahead') is not None else ''}/{git.get('behind') if git.get('behind') is not None else ''}",
         "",
+        "## Git Status",
+        "| State | Files |",
+        "| --- | ---: |",
+    ]
+    status_summary = git.get("status_summary", {}) if isinstance(git.get("status_summary"), dict) else {}
+    for status_name in ("added", "deleted", "modified", "renamed", "untracked", "other"):
+        lines.append(f"| {status_name} | {status_summary.get(status_name, 0)} |")
+
+    lines.extend(
+        [
+        "",
         "## File Types",
         "| Extension | Files | Lines |",
         "| --- | ---: | ---: |",
-    ]
+        ]
+    )
     file_types = line_counts.get("file_types", {}) if isinstance(line_counts.get("file_types"), dict) else {}
     for extension, counts in file_types.items():
         item = counts if isinstance(counts, dict) else {}

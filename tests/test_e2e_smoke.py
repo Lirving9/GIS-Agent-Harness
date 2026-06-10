@@ -151,6 +151,10 @@ def test_verify_acceptance_script_smoke() -> None:
     assert payload["acceptance"]["project_metrics_strict_gate"] is True
     assert payload["evidence"]["project_metrics_strict_gate"]["returncode"] == 1
     assert payload["evidence"]["project_metrics_strict_gate"]["payload"]["targets"]["commits"]["met"] is False
+    assert payload["acceptance"]["project_metrics_top_files"] is True
+    top_files = payload["evidence"]["project_metrics_top_files"]["line_counts"]["top_python_files"]
+    assert len(top_files) == 3
+    assert top_files[0]["lines"] >= top_files[-1]["lines"]
     assert payload["stop_conditions"]["all_acceptance_items"] is True
     assert payload["stop_conditions"]["readme_commands_copyable"] is True
     assert payload["stop_conditions"]["deliverables_present"] is True
